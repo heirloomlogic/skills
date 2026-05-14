@@ -407,6 +407,8 @@ UI keeps a usable verdict while exposing the error.
 
 ## Wiring PaywallPlugin
 
+The protocol/state/action types live in `SwiduxPaywall`; the RevenueCat adapter lives in `SwiduxRevenueCatPaywall`. Full walkthrough in `swidux-paywall.md`.
+
 ```swift
 // AppState.swift
 @Slice var paywall: PaywallState = .init()
@@ -415,31 +417,34 @@ UI keeps a usable verdict while exposing the error.
 case paywall(PaywallAction)
 
 // AppStore.swift
+import SwiduxPaywall
+import SwiduxRevenueCatPaywall
+
+RevenueCatPaywall.configure(apiKey: Secrets.revenueCatAPIKey)
 let paywallPlugin = PaywallPlugin<AppState, AppAction>(
     state: \.paywall,
     action: AppAction.paywall,
     extractAction: { if case .paywall(let a) = $0 { return a }; return nil },
-    service: RevenueCatPaywallService()  // your conformer to PaywallService
+    service: RevenueCatPaywallService(entitlementID: "pro")
 )
 plugins.register(paywallPlugin)
 ```
 
 ```swift
-// In a view: observe + gate a feature
-.task { store.send(.paywall(.observeCustomerInfo)) }
+// RootView.swift — the one view that attaches the paywall sheet
+import SwiduxRevenueCatPaywallUI
 
-Button("Pro Feature") {
+ContentView()
+    .task { store.send(.paywall(.observeCustomerInfo)) }
+    .revenueCatPaywall(state: store.paywall) { store.send(.paywall($0)) }
+
+// Feature views never import SwiduxRevenueCatPaywallUI — they gate via state and dispatch.
+Button("Pro feature") {
     if store.paywall.isGateSatisfied {
-        // run pro feature
+        store.send(.proFeature(.run))
     } else {
-        store.send(.paywall(.request(reason: "pro-feature")))
+        store.send(.paywall(.request(reason: "pro_feature")))
     }
-}
-.sheet(isPresented: Binding(
-    get: { store.paywall.isPresented },
-    set: { if !$0 { store.send(.paywall(.dismiss)) } }
-)) {
-    PaywallSheet()
 }
 ```
 
