@@ -1,15 +1,15 @@
 ---
 name: swidux-ref
-description: Architecture rules and code templates for Swidux — a Redux-style state-management library for SwiftUI. Use when writing Swidux apps, adding actions or reducers, wiring plugins (Persistence, Undo, Killswitch, ParentalGate, Paywall), or designing state with @Swidux. Activate on "Swidux", "@Swidux", "AppStore", "AppState", "AppReducer", "EntityStore", "PersistencePlugin", "UndoPlugin", "killswitch", "paywall", "parental gate".
+description: Architecture rules and code templates for Swidux — a Redux-style state-management library for SwiftUI — and its provider-agnostic service layer (analytics, paywall). Use when writing Swidux apps, adding actions or reducers, wiring plugins (Persistence, Undo, Killswitch, ParentalGate, Paywall, Analytics, FeatureFlags), or integrating third-party services like Mixpanel or RevenueCat through their Swidux adapter packages. Activate on "Swidux", "@Swidux", "AppStore", "AppReducer", "EntityStore", "killswitch", "paywall", "parental gate", "AnalyticsService", "PaywallService", "MixpanelAnalyticsService", "RevenueCatPaywallService".
 ---
 
 # Swidux Reference
 
-Swidux is a Redux-style state-management library for SwiftUI. State lives in one observable store; mutations go through reducers; side effects run as async closures. Macros generate observability boilerplate; plugins handle persistence, undo, paywalls, killswitches, and parental gates.
+Swidux is a Redux-style state-management library for SwiftUI. State lives in one observable store; mutations go through reducers; side effects run as async closures. Macros generate observability boilerplate; plugins handle persistence, undo, paywalls, killswitches, parental gates, analytics, and feature flags. Third-party services (Mixpanel, RevenueCat, …) are accessed through their dedicated Swidux adapter packages — never imported into app code directly.
 
-This skill captures the rules, conventions, and dispatch lifecycle. Code templates are in `swidux-patterns.md`.
+This skill captures the rules, conventions, and dispatch lifecycle. Code templates are in `swidux-patterns.md`. Full wiring walkthroughs for the analytics and paywall layers — including the protocol/adapter layering and provider-swap recipe — are in `swidux-analytics.md` and `swidux-paywall.md`.
 
-## The 10 architecture rules
+## The 11 architecture rules
 
 ### 1. State is a `nonisolated` struct annotated with `@Swidux`
 
@@ -82,7 +82,9 @@ The `SwiduxPlugin` protocol has four hooks (all default no-op):
 | `afterReduce(state:action:)` | After all reducing | Persistence drain, logging | `Void` |
 | `flush() async` | App shutdown | Drain async buffers | `Void` |
 
-**Core middleware** (`PersistencePlugin`, `UndoPlugin`) is action-agnostic — works with any app, no wiring beyond construction. **Domain plugins** (`KillswitchPlugin`, `ParentalGatePlugin`, `PaywallPlugin`) own a state slice and action enum and require keypath + action lifter + extractor.
+**Core middleware** (`PersistencePlugin`, `UndoPlugin`) is action-agnostic — works with any app, no wiring beyond construction. **Domain plugins** (`KillswitchPlugin`, `ParentalGatePlugin`, `PaywallPlugin`, `AnalyticsPlugin`, `FeatureFlagsPlugin`) own a state slice and action enum and require keypath + action lifter + extractor.
+
+Domain plugins backed by an external service (Killswitch, Paywall, Analytics) take a `service:` parameter typed as the protocol (`KillswitchService`, `PaywallService`, `AnalyticsService`) — never an SDK type. The protocol/adapter layering is rule #11.
 
 ### 7. The dispatch lifecycle is fixed
 
@@ -175,6 +177,16 @@ plugins.register(parentalGatePlugin)
 
 Undo first, persistence second, then domain plugins.
 
+### 11. Third-party services are accessed only through their Swidux adapter
+
+App code depends on the protocol (`AnalyticsService`, `PaywallService`, `KillswitchService`, …), never on the underlying SDK. The concrete adapter — `MixpanelAnalyticsService` from `SwiduxMixpanelAnalytics`, `RevenueCatPaywallService` from `SwiduxRevenueCatPaywall` — calls `Mixpanel.initialize` / `Purchases.configure` internally; the app never does.
+
+Vendor names appear in exactly two files: `Package.swift` (the dependency) and `App/AppStore.swift` (the service construction inside `Store.configured()`). For paywalls the one view that attaches the sheet is a third allowed site (`import SwiduxRevenueCatPaywallUI`). Everything else — `@main`, root view, feature views, reducers, environment, models — stays vendor-blind.
+
+Swapping providers (Mixpanel → Amplitude, RevenueCat → StoreKit2) is a two-line change in `Store.configured()` plus the package swap. State slices, actions, reducer dispatches, gate checks, and analytics events are unchanged because they speak the Swidux types (`AnalyticsService`, `AnalyticsEvent`, `PaywallState`, `EntitlementSnapshot`). Any migration that touches more than these sites means the protocol has leaked — find it and push it back.
+
+Full wiring in `swidux-analytics.md` and `swidux-paywall.md`.
+
 ## Domain plugin wiring shape
 
 Every domain plugin (Killswitch, ParentalGate, Paywall, or your own) takes the same three keypath/closure pieces:
@@ -217,7 +229,12 @@ This is the contract — plugins never assume your root types.
 | Persist a scalar preference (theme, last-seen version) | Inject `KeyValueStore` via `Environment`; hydrate at startup, write from an effect |
 | Add undo for an action | Make `isUndoable` return `true` for that case |
 | Block on app version | Wire `KillswitchPlugin` (see `swidux-patterns.md`) |
-| Gate a feature on subscription | Wire `PaywallPlugin`; check `store.paywall.isGateSatisfied` |
+| Gate a feature on subscription | Check `store.paywall.isGateSatisfied`; otherwise dispatch `.paywall(.request(reason:))` (see `swidux-paywall.md`) |
+| Show the paywall sheet | `.revenueCatPaywall(state: store.paywall) { store.send(.paywall($0)) }` from `SwiduxRevenueCatPaywallUI` |
+| Track an analytics event | Add a case to `AnalyticsMapper` (passive), or dispatch `.analytics(.track(...))` from a reducer (effect) — see `swidux-analytics.md` |
+| Record a screen view | Dispatch `.analytics(.screenView("Home"))` from the view's `.task` |
+| Identify the user automatically | Configure `AnalyticsIdentity(userID: \.auth.currentUserID, …)` on the plugin |
+| Swap analytics or paywall provider | Two lines in `Store.configured()` + the dependency in `Package.swift` (paywall also flips the UI module import in the sheet view) |
 | Gate an action on parent approval | Wire `ParentalGatePlugin`; dispatch `.parentalGate(.request(reason:))` |
 | Add feature flags / A/B variants / remote config | Wire `FeatureFlagsPlugin`; declare typed flags via `BoolFlag` / `VariantFlag` / `ValueFlag`; read with `store.featureFlags.isEnabled(.myFlag)` |
 | Custom cross-cutting feature | Write a `SwiduxPlugin` (see DocC `BuildingADomainPlugin`) |
@@ -234,6 +251,9 @@ This is the contract — plugins never assume your root types.
 - ❌ Using regular `var` for state slices that should be `@Slice` (loses per-property observation)
 - ❌ Reading from `KeyValueStore` inside a reducer (reads are for hydration only — pull values into state at startup, then observe state)
 - ❌ Touching `UserDefaults.standard` directly anywhere in app code (use `KeyValueStore` so tests can inject `InMemoryKeyValueStore`)
+- ❌ Importing or calling any analytics/paywall SDK directly in app code (`import Mixpanel`, `import RevenueCat`, `Mixpanel.initialize`, `Mixpanel.mainInstance().track`, `Purchases.configure`, `Purchases.shared.purchase`). Adapters absorb the SDK; tracking and purchase flows go through `.analytics(...)` / `.paywall(...)` actions
+- ❌ Constructing the analytics or paywall service anywhere but inside `Store.configured()` — not in `@main`'s `App.init()`, not behind an `AppEnvironment.makeAnalyticsService()` helper. The conditional and the binding sit next to the plugin that uses them
+- ❌ Storing vendor-specific types (`MixpanelInstance`, `CustomerInfo`, `Offerings`) in `AppState`, `AppEnvironment`, or any feature type, or importing `SwiduxRevenueCatPaywallUI` outside the one sheet view. State and environment hold protocol-typed services only
 
 ## Requirements
 
