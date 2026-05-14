@@ -37,7 +37,7 @@ case .analytics:
     return nil
 ```
 
-`AnalyticsState` carries `isOptedOut`, `currentScreen`, and `lastIdentifiedUserID` (plugin-managed). `AnalyticsAction` cases:
+`AnalyticsState` carries `isOptedOut`, `currentScreen`, `lastIdentifiedUserID`, and `lastIdentifiedProperties` (the last two are plugin-managed; the plugin diffs the pair to decide when to re-fire `identify`). `AnalyticsAction` cases:
 
 - `.track(AnalyticsEvent)` — explicit event, bypasses the mapper
 - `.screenView(String, properties: [String: AnalyticsValue])` — also updates `currentScreen` so subsequent events get a `"screen"` property auto-attached
@@ -64,18 +64,21 @@ let analyticsMapper = AnalyticsMapper<AppState, AppAction> { state, action in
 }
 ```
 
-Identity follows the same shape — the plugin watches the keypath across dispatches and fires `identify` / `reset` on transitions automatically:
+Identity follows the same shape — both closures are pure functions of state and the plugin re-runs them on every non-analytics dispatch. When `(userID, userProperties)` changes against the last-sent pair, it fires `service.identify`; when `userID` transitions to `nil`, it fires `service.reset`. Late-arriving values (paywall entitlements, feature flags, A/B variants) flow into the analytics service automatically as soon as state reflects them — no need to gate `userID` behind a "ready" flag or to manually dispatch `.analytics(.identify(...))` when properties change.
 
 ```swift
 let analyticsIdentity = AnalyticsIdentity<AppState>(
     userID: \.auth.currentUserID,
     userProperties: { state in
-        ["subscription_tier": state.paywall.isPro ? "pro" : "free"]
+        [
+            "subscription_tier": state.paywall.isPro ? "pro" : "free",
+            "ab_onboarding_v2": state.featureFlags.onboardingV2,
+        ]
     }
 )
 ```
 
-The keypath-based init requires `KeyPath<State, String?> & Sendable`. For derived IDs (e.g., hashed), use the closure-based init: `AnalyticsIdentity(userID: { hash($0.auth.currentUserID) })`.
+The keypath-based init requires `KeyPath<State, String?> & Sendable`. For derived IDs (e.g., hashed), use the closure-based init: `AnalyticsIdentity(userID: { hash($0.auth.currentUserID) })`. Because both closures run on every non-analytics dispatch, keep them cheap — direct keypath reads, dictionary literals, simple ternaries. Avoid allocations, sorting, JSON encoding, or any work proportional to collection size. Dictionary equality short-circuits the no-op case, so cheap-and-frequent is the intended shape.
 
 ## Plugin construction in `Store.configured()`
 
