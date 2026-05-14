@@ -64,9 +64,34 @@ let analyticsMapper = AnalyticsMapper<AppState, AppAction> { state, action in
 }
 ```
 
-Identity follows the same shape — both closures are pure functions of state and the plugin re-runs them on every non-analytics dispatch. When `(userID, userProperties)` changes against the last-sent pair, it fires `service.identify`; when `userID` transitions to `nil`, it fires `service.reset`. Late-arriving values (paywall entitlements, feature flags, A/B variants) flow into the analytics service automatically as soon as state reflects them — no need to gate `userID` behind a "ready" flag or to manually dispatch `.analytics(.identify(...))` when properties change.
+## Identity
+
+Identity is the analytics plugin's second passive surface. Like the mapper, `userID` and `userProperties` are pure functions of state, and the plugin re-runs them on every non-analytics dispatch. When `(userID, userProperties)` changes against the last-sent pair, the plugin fires `service.identify`; when `userID` transitions to `nil`, it fires `service.reset`. Late-arriving values (paywall entitlements, feature flags, A/B variants) flow into the analytics service automatically as soon as state reflects them — no need to gate `userID` behind a "ready" flag or to manually dispatch `.analytics(.identify(...))` when properties change.
+
+Both closures run hot. Keep them to direct keypath reads, dictionary literals, and simple ternaries. Avoid allocations, sorting, JSON encoding, work proportional to collection size, and — above all — I/O. The exact mistake to avoid is reading the device UUID out of Keychain from inside the `userID` closure: it executes per dispatch, which would mean a Keychain hit per dispatch. Hydrate at launch, read from state. Dictionary equality short-circuits the no-op case, so cheap-and-frequent is the intended shape.
+
+Two canonical paths cover almost every app:
+
+### Auth path (signed-in users)
+
+State carries an optional `currentUserID`; the auth reducer sets it on sign-in and clears it on sign-out:
 
 ```swift
+@Swidux
+nonisolated struct AuthState: Equatable, Sendable {
+    var currentUserID: String? = nil
+}
+
+// Reducer arms
+case .auth(.signedIn(let userID)):
+    state.auth.currentUserID = userID
+    return nil
+
+case .auth(.signedOut):
+    state.auth.currentUserID = nil
+    return nil
+
+// Identity wiring
 let analyticsIdentity = AnalyticsIdentity<AppState>(
     userID: \.auth.currentUserID,
     userProperties: { state in
@@ -78,7 +103,59 @@ let analyticsIdentity = AnalyticsIdentity<AppState>(
 )
 ```
 
-The keypath-based init requires `KeyPath<State, String?> & Sendable`. For derived IDs (e.g., hashed), use the closure-based init: `AnalyticsIdentity(userID: { hash($0.auth.currentUserID) })`. Because both closures run on every non-analytics dispatch, keep them cheap — direct keypath reads, dictionary literals, simple ternaries. Avoid allocations, sorting, JSON encoding, or any work proportional to collection size. Dictionary equality short-circuits the no-op case, so cheap-and-frequent is the intended shape.
+**What happens on logout.** Clearing `currentUserID` makes the next dispatch trip the `id → nil` transition; the plugin fires `service.reset()` exactly once. No manual `.analytics(.reset)` dispatch needed — and importantly, dispatching one in addition will double-fire. Let the transition do its work.
+
+### Anonymous path (no auth — device-stable identity)
+
+Apps without a user account system still want stable identity for analytics so a single user's sessions correlate. Mint a UUID once, persist it in Keychain so it survives reinstall, hydrate into `AppState.deviceID` at launch, and feed it through the keypath:
+
+```swift
+// Key declaration (somewhere central, e.g., AppState.swift)
+extension KVKey where Value == String {
+    static let deviceID = KVKey<String>("device-id")
+}
+
+// AppState — declared optional so the keypath form typechecks
+@Swidux
+nonisolated struct AppState: Equatable, Sendable {
+    var deviceID: String? = nil
+    @Slice var ui: UIState = .init()
+    // …
+}
+
+// In Store.configured(), before constructing the store
+let kv = KeychainKeyValueStore(service: "com.example.myapp")
+let deviceID = kv.value(.deviceID) ?? {
+    let new = UUID().uuidString
+    kv.setValue(new, for: .deviceID)
+    return new
+}()
+let initial = AppState(deviceID: deviceID, ui: .hydrated(from: kv))
+
+// Identity wiring
+let analyticsIdentity = AnalyticsIdentity<AppState>(
+    userID: \.deviceID,
+    userProperties: { _ in [:] }
+)
+```
+
+`AppState.deviceID` is declared `String?` because the keypath-based `AnalyticsIdentity(userID:)` init requires `KeyPath<State, String?> & Sendable`. The hydration path keeps it non-nil from launch onward; the optionality is a type-system concession, not a runtime contingency.
+
+**Keychain vs UserDefaults.** `KeychainKeyValueStore` survives reinstall (default `.afterFirstUnlockThisDeviceOnly` accessibility — readable in the background after first unlock, excluded from iCloud Keychain sync and device-to-device migration). `UserDefaultsKeyValueStore` does not survive reinstall — a fresh install gets a new identity. Pick Keychain when you want analytics to attribute a re-installer to their old identity (the usual choice); pick UserDefaults when reinstall-as-new-user is the right product semantic. The full comparison table and accessibility tuning live in Swidux DocC `KeyValueStoreGuide`.
+
+### Derived IDs
+
+For hashed or transformed IDs, use the closure-based init:
+
+```swift
+AnalyticsIdentity(userID: { state in hash(state.auth.currentUserID) })
+```
+
+The closure form is also the escape hatch when state stores the ID as non-optional `String` — it bypasses the `String?` keypath constraint. Same cheapness rules apply: pure, allocation-free, no I/O.
+
+### Identity tests
+
+Inject `InMemoryKeyValueStore` for both paths to make hydration deterministic. The DocC `KeyValueStoreGuide` "Testing" section shows the pattern (same-instance read-back after a write); identity tests build on top by hydrating an `AppState` from that store and asserting on the plugin's `service.identify` / `service.reset` calls captured by `MockMixpanelAnalyticsService`. See "Tests" below for the general analytics mock setup.
 
 ## Plugin construction in `Store.configured()`
 
@@ -111,13 +188,13 @@ The empty-token branch picks the no-op `MockAnalyticsService` from `SwiduxAnalyt
 
 ## Dispatching events from reducers
 
-When the mapper isn't the right shape — usually for async events that depend on effect results — dispatch explicitly:
+When the mapper isn't the right shape — usually for async events that depend on effect results, or identity transitions that need an `alias` for anon-to-known stitching — dispatch explicitly. This sits on top of auto-identify: the keypath transition still fires `identify`/`reset` automatically; the explicit dispatch is purely for the *additional* work the passive surfaces don't cover.
 
 ```swift
 case .auth(.signedIn(let userID)):
-    state.auth.currentUserID = userID
+    state.auth.currentUserID = userID                   // auto-identify fires from this on the next dispatch
     return { send in
-        await send(.analytics(.alias(newID: userID)))
+        await send(.analytics(.alias(newID: userID)))   // stitches the prior anonymous distinctId to the new userID
         await send(.analytics(.track(AnalyticsEvent("user_signed_in"))))
     }
 ```

@@ -125,7 +125,7 @@ extension KVKey where Value == Theme {
 }
 
 struct AppEnvironment: Sendable {
-    var keyValue: any KeyValueStore  // production: UserDefaultsKeyValueStore()
+    var keyValue: any KeyValueStore  // production: UserDefaultsKeyValueStore or KeychainKeyValueStore
 
     static func live() -> Self { .init(keyValue: UserDefaultsKeyValueStore()) }
 }
@@ -144,7 +144,7 @@ case .themeChanged(let theme):
     }
 ```
 
-Reads are for **hydration only** — don't read from a reducer mid-cycle. Tests inject `InMemoryKeyValueStore`. Values are JSON-encoded as `Data`, so `@AppStorage` cannot observe them (intentional — Swidux state is the source of truth).
+Reads are for **hydration only** — don't read from a reducer mid-cycle. Tests inject `InMemoryKeyValueStore`. Choose `KeychainKeyValueStore` when the value should survive app reinstall (anonymous device IDs are the canonical case — see "Identity for analytics" below); `UserDefaultsKeyValueStore` for everything else. Values are JSON-encoded as `Data`, so `@AppStorage` cannot observe them (intentional — Swidux state is the source of truth).
 
 ### 9. Undo is opt-in via `UndoPlugin`
 
@@ -202,6 +202,48 @@ SomePlugin(
 
 This is the contract — plugins never assume your root types.
 
+## Identity for analytics
+
+`AnalyticsIdentity` closures run on every non-analytics dispatch. They must be cheap reads from state — never I/O. Hydrate identity once at launch into `AppState`, then point the keypath at it. Two shapes cover the common cases:
+
+### App has user auth
+
+```swift
+@Swidux
+nonisolated struct AuthState: Equatable, Sendable {
+    var currentUserID: String? = nil
+}
+
+let analyticsIdentity = AnalyticsIdentity<AppState>(
+    userID: \.auth.currentUserID,
+    userProperties: { state in [:] }
+)
+```
+
+Sign-in arm sets `currentUserID`; sign-out clears it. `nil → id` fires `service.identify`; `id → nil` fires `service.reset`. No manual `.analytics(.identify(...))` dispatch needed.
+
+### App has no user auth (device-stable identity)
+
+Use `KeychainKeyValueStore` (survives reinstall) to mint a UUID once and hydrate it into `AppState.deviceID: String?` in `Store.configured()`. The canonical read-or-mint helper lives in Swidux DocC under `KeyValueStoreGuide` → "Device-Identity Pattern" — don't reinvent the `SecItemCopyMatching` boilerplate locally.
+
+```swift
+// In Store.configured(), alongside UIState.hydrated(from:)
+let kv = KeychainKeyValueStore(service: "com.example.myapp")
+let deviceID = kv.value(.deviceID) ?? {
+    let new = UUID().uuidString
+    kv.setValue(new, for: .deviceID)
+    return new
+}()
+let initial = AppState(deviceID: deviceID, ui: .hydrated(from: kv))
+
+let analyticsIdentity = AnalyticsIdentity<AppState>(
+    userID: \.deviceID,
+    userProperties: { state in [:] }
+)
+```
+
+Declare `var deviceID: String? = nil` on `AppState` so the keypath form (which needs `KeyPath<State, String?>`) typechecks; the launch path keeps it non-nil. Full walkthrough including the `KVKey<String>("device-id")` declaration, accessibility tuning, and test injection in `swidux-analytics.md` and the DocC `KeyValueStoreGuide`.
+
 ## SwiftUI integration rules
 
 - App owns the store with `@State`: `@State private var store = AppStore.configured()`. Inject via `.environment(store)`. Never recreate the store in `body`.
@@ -233,7 +275,8 @@ This is the contract — plugins never assume your root types.
 | Show the paywall sheet | `.revenueCatPaywall(state: store.paywall) { store.send(.paywall($0)) }` from `SwiduxRevenueCatPaywallUI` |
 | Track an analytics event | Add a case to `AnalyticsMapper` (passive), or dispatch `.analytics(.track(...))` from a reducer (effect) — see `swidux-analytics.md` |
 | Record a screen view | Dispatch `.analytics(.screenView("Home"))` from the view's `.task` |
-| Identify the user automatically | Configure `AnalyticsIdentity(userID: \.auth.currentUserID, …)` on the plugin |
+| Identify a signed-in user | `AnalyticsIdentity(userID: \.auth.currentUserID, …)` — see "Identity for analytics" |
+| Identify an anonymous user (no auth) | Hydrate a Keychain UUID into `AppState.deviceID: String?`; `AnalyticsIdentity(userID: \.deviceID, …)` — see "Identity for analytics" |
 | Swap analytics or paywall provider | Two lines in `Store.configured()` + the dependency in `Package.swift` (paywall also flips the UI module import in the sheet view) |
 | Gate an action on parent approval | Wire `ParentalGatePlugin`; dispatch `.parentalGate(.request(reason:))` |
 | Add feature flags / A/B variants / remote config | Wire `FeatureFlagsPlugin`; declare typed flags via `BoolFlag` / `VariantFlag` / `ValueFlag`; read with `store.featureFlags.isEnabled(.myFlag)` |
@@ -250,6 +293,7 @@ This is the contract — plugins never assume your root types.
 - ❌ Registering `PersistencePlugin` before `UndoPlugin` (snapshot must happen before any mutation)
 - ❌ Using regular `var` for state slices that should be `@Slice` (loses per-property observation)
 - ❌ Reading from `KeyValueStore` inside a reducer (reads are for hydration only — pull values into state at startup, then observe state)
+- ❌ Calling I/O (Keychain, UserDefaults, file system, network) from the `AnalyticsIdentity` `userID` or `userProperties` closure — closures run on every non-analytics dispatch; hydrate once at launch and read from state
 - ❌ Touching `UserDefaults.standard` directly anywhere in app code (use `KeyValueStore` so tests can inject `InMemoryKeyValueStore`)
 - ❌ Importing or calling any analytics/paywall SDK directly in app code (`import Mixpanel`, `import RevenueCat`, `Mixpanel.initialize`, `Mixpanel.mainInstance().track`, `Purchases.configure`, `Purchases.shared.purchase`). Adapters absorb the SDK; tracking and purchase flows go through `.analytics(...)` / `.paywall(...)` actions
 - ❌ Constructing the analytics or paywall service anywhere but inside `Store.configured()` — not in `@main`'s `App.init()`, not behind an `AppEnvironment.makeAnalyticsService()` helper. The conditional and the binding sit next to the plugin that uses them
