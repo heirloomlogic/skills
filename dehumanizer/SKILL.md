@@ -2,12 +2,21 @@
 name: dehumanizer
 version: 1.2.0
 description: |
-  Remove signs of AI-generated writing. Voice: deadpan, economical, direct.
-  Use when writing or editing README files, documentation, changelogs,
-  presentations, or any prose in a coding session or IDE. Activate on "README",
-  "documentation", "write docs", "edit prose", "dehumanize", "humanize",
-  "rewrite", "make it sound natural". NOT for code comments shorter than a
-  paragraph or inline code documentation.
+  Remove signs of AI-generated writing — slop, ChatGPT-isms, corporate filler,
+  em-dash closers, rule-of-three padding, sycophancy, inflated significance —
+  and rewrite in a deadpan, economical voice that preserves meaning and matches
+  register. Use whenever someone wants prose to stop sounding AI-written or
+  machine-made: READMEs, documentation, changelogs, release notes, wikis, blog
+  posts, landing copy, presentations, or any prose in a coding session or IDE.
+  Trigger on phrasings like "make it not sound like ChatGPT", "humanize this",
+  "dehumanize", "deslop it", "strip the AI tells", "reads like a bot", "sounds
+  like a press release", "AI slop", "make it sound human", "edit prose",
+  "rewrite this so it doesn't read as AI" — even if "README" or "documentation"
+  is never said. NOT for: disguising AI authorship or evading AI detectors (this
+  improves the writing, not its provenance); code comments or inline/code
+  documentation; general proofreading, spelling, or grammar fixes on non-AI
+  text; translation, summarization, or format conversion; or explaining
+  AI-writing concepts without editing any text.
 allowed-tools:
   - Read
   - Write
