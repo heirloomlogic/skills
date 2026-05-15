@@ -1,0 +1,26 @@
+{
+  "skill_name": "dehumanizer",
+  "evals": [
+    {
+      "id": 0,
+      "name": "ai-slop-readme",
+      "prompt": "Dehumanize the README at dehumanizer-workspace/inputs/ai-readme.md. Write the rewritten version to the output directory as ai-readme.md.",
+      "expected_output": "Cleaned README: oaicite/turn0search0 markup artifacts deleted, signposting and fragmented header removed, persuasive-authority trope and challenges section cut, inline-header bold list and emojis converted, em-dash closer and tailing negation fixed, meaning preserved, register still a README.",
+      "files": ["dehumanizer-workspace/inputs/ai-readme.md"]
+    },
+    {
+      "id": 1,
+      "name": "changelog-em-dash-hyphens",
+      "prompt": "Dehumanize the changelog at dehumanizer-workspace/inputs/changelog.md. Write the rewritten version to the output directory as changelog.md.",
+      "expected_output": "Em-dash sales closers removed (two plain sentences or restructured), hyphen-pair buzzwords reduced/varied without producing ungrammatical de-hyphenated phrases like 'cross functional', changelog still reads as a changelog with concrete entries.",
+      "files": ["dehumanizer-workspace/inputs/changelog.md"]
+    },
+    {
+      "id": 2,
+      "name": "human-performative-blog",
+      "prompt": "Dehumanize the blog intro at dehumanizer-workspace/inputs/blog-intro.md. Write the rewritten version to the output directory as blog-intro.md.",
+      "expected_output": "Light touch: this is competent human writing with a real voice. It should NOT be sterilized into encyclopedia copy, the first-person voice and the 'embarrassing' admission should survive, hyphenated pairs like 'real-time' and 'cross-functional' should NOT be blanket de-hyphenated into bad grammar. Minimal or no changes is an acceptable outcome.",
+      "files": ["dehumanizer-workspace/inputs/blog-intro.md"]
+    }
+  ]
+}
