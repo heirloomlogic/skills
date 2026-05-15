@@ -9,10 +9,11 @@ Agent skills published by [Heirloom Logic LLC](https://heirloomlogic.com) for Cl
 | [`swidux-ref`](swidux-ref/SKILL.md) | Architecture rules and copy-pasteable code templates for [Swidux](https://github.com/heirloomlogic/Swidux), a Redux-style state-management library for SwiftUI. | [heirloomlogic/Swidux](https://github.com/heirloomlogic/Swidux) |
 | [`tightlip-ref`](tightlip-ref/SKILL.md) | Setup and code patterns for [Tightlip](https://github.com/heirloomlogic/Tightlip), a SwiftPM build-tool plugin that generates a `Secrets` enum from environment variables at build time. | [heirloomlogic/Tightlip](https://github.com/heirloomlogic/Tightlip) |
 | [`persnicket-ref`](persnicket-ref/SKILL.md) | Setup and CI wiring for [Persnicket](https://github.com/heirloomlogic/Persnicket), a lightweight `swift-format` wrapper for Swift packages. | [heirloomlogic/Persnicket](https://github.com/heirloomlogic/Persnicket) |
+| [`dehumanizer`](dehumanizer/SKILL.md) | Strips AI-writing tells (slop, ChatGPT-isms, em-dash closers, sycophancy) and rewrites prose in a deadpan, economical voice. | — |
 
 ## Install
 
-**GitHub CLI** (recommended — multi-agent, requires `gh` ≥ v2.90.0):
+**GitHub CLI** (recommended; multi-agent, needs `gh` ≥ v2.90.0):
 
 ```bash
 gh skill install heirloomlogic/skills swidux-ref --agent claude-code --scope user
@@ -30,9 +31,24 @@ npx skillsadd heirloomlogic/skills
 
 Indexes this repo. Each skill folder becomes individually addressable on [skills.sh](https://skills.sh).
 
+**All skills at once:** there is no single-command "install all". `gh skill install` takes one skill name per call, so loop over them:
+
+```bash
+for s in dehumanizer persnicket-ref swidux-ref tightlip-ref; do
+  gh skill install heirloomlogic/skills "$s" --agent claude-code --scope user
+  gh skill install heirloomlogic/skills "$s" --agent codex       --scope user
+done
+```
+
+`--agent claude-code` installs to `~/.claude/skills/`. `--agent codex` installs to the shared `~/.agents/skills/` directory (Codex, Cursor, Gemini CLI, and other agents read from there). Run both lines to cover both locations.
+
 ## Updating
 
-Re-run whichever install command you used originally.
+```bash
+gh skill update --all
+```
+
+Scans every installed skill in `~/.claude/skills/` and `~/.agents/skills/` and updates each in place. Or re-run whichever install command you used originally.
 
 ## Versioning
 
