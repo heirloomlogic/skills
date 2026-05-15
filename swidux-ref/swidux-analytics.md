@@ -64,6 +64,30 @@ let analyticsMapper = AnalyticsMapper<AppState, AppAction> { state, action in
 }
 ```
 
+## Event names are the wire key — not an enum
+
+`AnalyticsEvent.name` is a `String` by design (`SwiduxAnalytics/AnalyticsEvent.swift`): the value is sent verbatim as the provider's event key. A library-, action-, or mapper-level event-name enum is an **anti-pattern, not a deferred improvement** — it would force the provider-agnostic library to enumerate every app's vocabulary, and the adapter would `.rawValue` it straight back to a string at the boundary anyway. The string *is* the deliberate wire type; don't re-architect around it.
+
+Typos, missing autocomplete, no central registry, and Mixpanel Lexicon drift are real concerns — solve them **additively, app-side** with named static factories that still return the boundary type. The mapper shape is unchanged:
+
+```swift
+// App/AnalyticsEvents.swift — the app's event registry
+extension AnalyticsEvent {
+    static func itemAdded() -> AnalyticsEvent { .init("item_added") }
+    static func paywallRequested(reason: String) -> AnalyticsEvent {
+        .init("paywall_requested", ["reason": .string(reason)])
+    }
+}
+
+// App/AnalyticsMapping.swift — factory form; equivalent to the literal form above
+case .items(.add):
+    return [.itemAdded()]
+case .paywall(.request(let reason)):
+    return [.paywallRequested(reason: reason)]
+```
+
+**Named `AnalyticsEvent` factories, never an event-name enum.** The factory file is the app's registry: one place to grep, one place autocomplete surfaces, one place to reconcile against Lexicon.
+
 ## Identity
 
 Identity is the analytics plugin's second passive surface. Like the mapper, `userID` and `userProperties` are pure functions of state, and the plugin re-runs them on every non-analytics dispatch. When `(userID, userProperties)` changes against the last-sent pair, the plugin fires `service.identify`; when `userID` transitions to `nil`, it fires `service.reset`. Late-arriving values (paywall entitlements, feature flags, A/B variants) flow into the analytics service automatically as soon as state reflects them — no need to gate `userID` behind a "ready" flag or to manually dispatch `.analytics(.identify(...))` when properties change.

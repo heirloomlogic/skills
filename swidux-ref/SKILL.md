@@ -275,7 +275,7 @@ Declare `var deviceID: String? = nil` on `AppState` so the keypath form (which n
 | Block on app version | Wire `KillswitchPlugin` (see `swidux-patterns.md`) |
 | Gate a feature on subscription | Check `store.paywall.isGateSatisfied`; otherwise dispatch `.paywall(.request(reason:))` (see `swidux-paywall.md`) |
 | Show the paywall sheet | `.revenueCatPaywall(state: store.paywall) { store.send(.paywall($0)) }` from `SwiduxRevenueCatPaywallUI` |
-| Track an analytics event | Add a case to `AnalyticsMapper` (passive), or dispatch `.analytics(.track(...))` from a reducer (effect) — see `swidux-analytics.md` |
+| Track an analytics event | Return a named `AnalyticsEvent` factory from `AnalyticsMapper` (passive), or dispatch `.analytics(.track(.someEvent()))` from a reducer (effect) — define factories in `extension AnalyticsEvent`, never an event-name enum; see `swidux-analytics.md` |
 | Record a screen view | Dispatch `.analytics(.screenView("Home"))` from the view's `.task` |
 | Identify a signed-in user | `AnalyticsIdentity(userID: \.auth.currentUserID, …)` — see "Identity for analytics" |
 | Identify an anonymous user (no auth) | Hydrate a Keychain UUID into `AppState.deviceID: String?`; `AnalyticsIdentity(userID: \.deviceID, …)` — see "Identity for analytics" |
@@ -301,6 +301,7 @@ Declare `var deviceID: String? = nil` on `AppState` so the keypath form (which n
 - ❌ Importing or calling any analytics/paywall SDK directly in app code (`import Mixpanel`, `import RevenueCat`, `Mixpanel.initialize`, `Mixpanel.mainInstance().track`, `Purchases.configure`, `Purchases.shared.purchase`). Adapters absorb the SDK; tracking and purchase flows go through `.analytics(...)` / `.paywall(...)` actions
 - ❌ Constructing the analytics or paywall service anywhere but inside `Store.configured()` — not in `@main`'s `App.init()`, not behind an `AppEnvironment.makeAnalyticsService()` helper. The conditional and the binding sit next to the plugin that uses them
 - ❌ Storing vendor-specific types (`MixpanelInstance`, `CustomerInfo`, `Offerings`) in `AppState`, `AppEnvironment`, or any feature type, or importing `SwiduxRevenueCatPaywallUI` outside the one sheet view. State and environment hold protocol-typed services only
+- ❌ Introducing an event-name enum (in the library, action, or mapper layer) to "fix" stringly-typed analytics. `AnalyticsEvent.name` is intentionally the provider wire key; an adapter would `.rawValue` an enum back to a string anyway. Named `AnalyticsEvent` factories, never an event-name enum (see `swidux-analytics.md` → "Event names are the wire key")
 
 ## Requirements
 
