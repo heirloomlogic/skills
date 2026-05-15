@@ -23,14 +23,6 @@ gh skill install heirloomlogic/skills swidux-ref --agent claude-code --scope use
 - `--scope project` installs to `<cwd>/.claude/skills/swidux-ref/` so a team can commit it.
 - Other agents: `--agent codex`, `--agent cursor`, `--agent gemini-cli`, etc. `gh skill install --help` shows the full list.
 
-**skills.sh:**
-
-```bash
-npx skillsadd heirloomlogic/skills
-```
-
-Indexes this repo. Each skill folder becomes individually addressable on [skills.sh](https://skills.sh).
-
 **All skills at once:** there is no single-command "install all". `gh skill install` takes one skill name per call, so loop over them:
 
 ```bash
@@ -44,11 +36,16 @@ done
 
 ## Updating
 
+Re-run the install command — it overwrites the skill in place:
+
 ```bash
-gh skill update --all
+for s in dehumanizer persnicket-ref swidux-ref tightlip-ref; do
+  gh skill install heirloomlogic/skills "$s" --agent claude-code --scope user
+done
 ```
 
-Scans every installed skill in `~/.claude/skills/` and `~/.agents/skills/` and updates each in place. Or re-run whichever install command you used originally.
+(`gh skill update --all` also works, but only for skills it installed itself —
+it can't update skills added by `npx` or copied in manually.)
 
 ## Versioning
 
