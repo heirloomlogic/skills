@@ -144,7 +144,7 @@ case .themeChanged(let theme):
     }
 ```
 
-Reads are for **hydration only** — don't read from a reducer mid-cycle. Tests inject `InMemoryKeyValueStore`. Choose `KeychainKeyValueStore` when the value should survive app reinstall (anonymous device IDs are the canonical case — see "Identity for analytics" below); `UserDefaultsKeyValueStore` for everything else. Values are JSON-encoded as `Data`, so `@AppStorage` cannot observe them (intentional — Swidux state is the source of truth).
+Reads are for **hydration only** — don't read from a reducer mid-cycle. Tests inject `InMemoryKeyValueStore`. Choose `KeychainKeyValueStore` when the value should survive app reinstall (anonymous device IDs are the canonical case — see "Identity for analytics" below, including the fixed macOS entitlement answer); `UserDefaultsKeyValueStore` for everything else. Values are JSON-encoded as `Data`, so `@AppStorage` cannot observe them (intentional — Swidux state is the source of truth).
 
 ### 9. Undo is opt-in via `UndoPlugin`
 
@@ -244,6 +244,8 @@ let analyticsIdentity = AnalyticsIdentity<AppState>(
 
 Declare `var deviceID: String? = nil` on `AppState` so the keypath form (which needs `KeyPath<State, String?>`) typechecks; the launch path keeps it non-nil. Full walkthrough including the `KVKey<String>("device-id")` declaration, accessibility tuning, and test injection in `swidux-analytics.md` and the DocC `KeyValueStoreGuide`.
 
+`KeychainKeyValueStore` never prompts the user (no Always Allow/Deny, no Touch ID / Face ID). The macOS entitlement answer is fixed, not a per-app decision: ship a provisioning-profile–signed build and leave `accessGroup: nil`; an unsigned local/CI build that fails the first write with `errSecMissingEntitlement` / `OSStatus` −34018 is a signing condition, not a prompt or a bug — add one team-prefixed `keychain-access-groups` entry. See `swidux-analytics.md` "macOS Keychain entitlement" and DocC `KeyValueStoreGuide`.
+
 ## SwiftUI integration rules
 
 - App owns the store with `@State`: `@State private var store = AppStore.configured()`. Inject via `.environment(store)`. Never recreate the store in `body`.
@@ -293,6 +295,7 @@ Declare `var deviceID: String? = nil` on `AppState` so the keypath form (which n
 - ❌ Registering `PersistencePlugin` before `UndoPlugin` (snapshot must happen before any mutation)
 - ❌ Using regular `var` for state slices that should be `@Slice` (loses per-property observation)
 - ❌ Reading from `KeyValueStore` inside a reducer (reads are for hydration only — pull values into state at startup, then observe state)
+- ❌ Re-deciding the macOS Keychain entitlement per app, or treating `errSecMissingEntitlement` / `OSStatus` −34018 as a runtime/user-prompt bug. The store never prompts; the answer is fixed — provisioning-profile–signed build + `accessGroup: nil`, with a single team-prefixed `keychain-access-groups` entry as the unsigned-local/CI fallback (see "Identity for analytics" and `swidux-analytics.md`)
 - ❌ Calling I/O (Keychain, UserDefaults, file system, network) from the `AnalyticsIdentity` `userID` or `userProperties` closure — closures run on every non-analytics dispatch; hydrate once at launch and read from state
 - ❌ Touching `UserDefaults.standard` directly anywhere in app code (use `KeyValueStore` so tests can inject `InMemoryKeyValueStore`)
 - ❌ Importing or calling any analytics/paywall SDK directly in app code (`import Mixpanel`, `import RevenueCat`, `Mixpanel.initialize`, `Mixpanel.mainInstance().track`, `Purchases.configure`, `Purchases.shared.purchase`). Adapters absorb the SDK; tracking and purchase flows go through `.analytics(...)` / `.paywall(...)` actions

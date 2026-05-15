@@ -143,6 +143,17 @@ let analyticsIdentity = AnalyticsIdentity<AppState>(
 
 **Keychain vs UserDefaults.** `KeychainKeyValueStore` survives reinstall (default `.afterFirstUnlockThisDeviceOnly` accessibility — readable in the background after first unlock, excluded from iCloud Keychain sync and device-to-device migration). `UserDefaultsKeyValueStore` does not survive reinstall — a fresh install gets a new identity. Pick Keychain when you want analytics to attribute a re-installer to their old identity (the usual choice); pick UserDefaults when reinstall-as-new-user is the right product semantic. The full comparison table and accessibility tuning live in Swidux DocC `KeyValueStoreGuide`.
 
+**macOS Keychain entitlement.** `KeychainKeyValueStore` uses the data-protection keychain, so it **never** prompts the user — no Always Allow/Deny dialog, no locked-keychain prompt, no Touch ID / Face ID. Don't reason about this per app; the answer is fixed. **Default: ship a provisioning-profile–signed build and leave `accessGroup: nil`** — the implicit `application-identifier` group, identical to the iOS default and the most private option (zero sharing surface). For an *unsigned* local or CI build the first `setValue` fails with `errSecMissingEntitlement` / `OSStatus` −34018 — a **signing/build** condition, not a runtime prompt or a bug. Fix it by adding a single team-prefixed entry (nothing else, and never a shared group first):
+
+```xml
+<key>keychain-access-groups</key>
+<array>
+    <string>$(AppIdentifierPrefix)com.example.myapp</string>
+</array>
+```
+
+iOS / iPadOS / tvOS / watchOS need no extra entitlement. The full strictness ranking lives in Swidux DocC `KeyValueStoreGuide` → "macOS sandbox & entitlements".
+
 ### Derived IDs
 
 For hashed or transformed IDs, use the closure-based init:
