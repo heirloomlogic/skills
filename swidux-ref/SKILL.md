@@ -224,7 +224,7 @@ Sign-in arm sets `currentUserID`; sign-out clears it. `nil → id` fires `servic
 
 ### App has no user auth (device-stable identity)
 
-Use `KeychainKeyValueStore` (survives reinstall) to mint a UUID once and hydrate it into `AppState.deviceID: String?` in `Store.configured()`. The canonical read-or-mint helper lives in Swidux DocC under `KeyValueStoreGuide` → "Device-Identity Pattern" — don't reinvent the `SecItemCopyMatching` boilerplate locally.
+Use `KeychainKeyValueStore` (survives reinstall) to mint a UUID once and hydrate it into a non-optional `AppState.deviceID: String` in `Store.configured()`. The canonical read-or-mint helper lives in Swidux DocC under `KeyValueStoreGuide` → "Device-Identity Pattern" — don't reinvent the `SecItemCopyMatching` boilerplate locally.
 
 ```swift
 // In Store.configured(), alongside UIState.hydrated(from:)
@@ -242,7 +242,7 @@ let analyticsIdentity = AnalyticsIdentity<AppState>(
 )
 ```
 
-Declare `var deviceID: String? = nil` on `AppState` so the keypath form (which needs `KeyPath<State, String?>`) typechecks; the launch path keeps it non-nil. Full walkthrough including the `KVKey<String>("device-id")` declaration, accessibility tuning, and test injection in `swidux-analytics.md` and the DocC `KeyValueStoreGuide`.
+Declare `var deviceID: String` on `AppState` (non-optional — it's always present after launch); the keypath form binds the `KeyPath<State, String>` `AnalyticsIdentity` init. Full walkthrough including the `KVKey<String>("device-id")` declaration, accessibility tuning, and test injection in `swidux-analytics.md` and the DocC `KeyValueStoreGuide`.
 
 `KeychainKeyValueStore` never prompts the user (no Always Allow/Deny, no Touch ID / Face ID). The macOS entitlement answer is fixed, not a per-app decision: ship a provisioning-profile–signed build and leave `accessGroup: nil`; an unsigned local/CI build that fails the first write with `errSecMissingEntitlement` / `OSStatus` −34018 is a signing condition, not a prompt or a bug — add one team-prefixed `keychain-access-groups` entry. See `swidux-analytics.md` "macOS Keychain entitlement" and DocC `KeyValueStoreGuide`.
 
@@ -278,7 +278,7 @@ Declare `var deviceID: String? = nil` on `AppState` so the keypath form (which n
 | Track an analytics event | Return a named `AnalyticsEvent` factory from `AnalyticsMapper` (passive), or dispatch `.analytics(.track(.someEvent()))` from a reducer (effect) — define factories in `extension AnalyticsEvent`, never an event-name enum; see `swidux-analytics.md` |
 | Record a screen view | Dispatch `.analytics(.screenView("Home"))` from the view's `.task` |
 | Identify a signed-in user | `AnalyticsIdentity(userID: \.auth.currentUserID, …)` — see "Identity for analytics" |
-| Identify an anonymous user (no auth) | Hydrate a Keychain UUID into `AppState.deviceID: String?`; `AnalyticsIdentity(userID: \.deviceID, …)` — see "Identity for analytics" |
+| Identify an anonymous user (no auth) | Hydrate a Keychain UUID into `AppState.deviceID: String`; `AnalyticsIdentity(userID: \.deviceID, …)` — see "Identity for analytics" |
 | Swap analytics or paywall provider | Two lines in `Store.configured()` + the dependency in `Package.swift` (paywall also flips the UI module import in the sheet view) |
 | Gate an action on parent approval | Wire `ParentalGatePlugin`; dispatch `.parentalGate(.request(reason:))` |
 | Add feature flags / A/B variants / remote config | Wire `FeatureFlagsPlugin`; declare typed flags via `BoolFlag` / `VariantFlag` / `ValueFlag`; read with `store.featureFlags.isEnabled(.myFlag)` |
