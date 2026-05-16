@@ -139,10 +139,10 @@ extension KVKey where Value == String {
     static let deviceID = KVKey<String>("device-id")
 }
 
-// AppState — declared optional so the keypath form typechecks
+// AppState — always present after launch; non-optional
 @Swidux
 nonisolated struct AppState: Equatable, Sendable {
-    var deviceID: String? = nil
+    var deviceID: String
     @Slice var ui: UIState = .init()
     // …
 }
@@ -163,7 +163,7 @@ let analyticsIdentity = AnalyticsIdentity<AppState>(
 )
 ```
 
-`AppState.deviceID` is declared `String?` because the keypath-based `AnalyticsIdentity(userID:)` init requires `KeyPath<State, String?> & Sendable`. The hydration path keeps it non-nil from launch onward; the optionality is a type-system concession, not a runtime contingency.
+`AppState.deviceID` is non-optional — it's hydrated before the store exists and never absent. `AnalyticsIdentity(userID:)` has a `KeyPath<State, String>` init for exactly this case; the `String?` init is reserved for genuinely-optional IDs (signed-out auth).
 
 **Keychain vs UserDefaults.** `KeychainKeyValueStore` survives reinstall (default `.afterFirstUnlockThisDeviceOnly` accessibility — readable in the background after first unlock, excluded from iCloud Keychain sync and device-to-device migration). `UserDefaultsKeyValueStore` does not survive reinstall — a fresh install gets a new identity. Pick Keychain when you want analytics to attribute a re-installer to their old identity (the usual choice); pick UserDefaults when reinstall-as-new-user is the right product semantic. The full comparison table and accessibility tuning live in Swidux DocC `KeyValueStoreGuide`.
 
@@ -186,7 +186,7 @@ For hashed or transformed IDs, use the closure-based init:
 AnalyticsIdentity(userID: { state in hash(state.auth.currentUserID) })
 ```
 
-The closure form is also the escape hatch when state stores the ID as non-optional `String` — it bypasses the `String?` keypath constraint. Same cheapness rules apply: pure, allocation-free, no I/O.
+For hashed/transformed IDs use the closure init; for a plain non-optional stored ID, prefer the `KeyPath<State, String>` init. Same cheapness rules apply: pure, allocation-free, no I/O.
 
 ### Identity tests
 
