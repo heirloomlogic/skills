@@ -18,6 +18,22 @@ public protocol AnalyticsService: Sendable {
 
 `AnalyticsValue` is a closed enum (`.string`, `.int`, `.double`, `.bool`, `.date`, `.array`, `.dict`, `.null`) with literal conformances — write `"pro"` and `5` directly in dictionaries; the adapter translates these into native Mixpanel types internally. The app never sees `MixpanelType`.
 
+## Default: develop with no vendor
+
+Because app code only ever speaks `AnalyticsService`, you don't need a vendor to build and verify analytics. `SwiduxAnalytics` ships two SDK-free conformers; the recommended `service:` while the Mixpanel decision is still open is `ConsoleAnalyticsService`:
+
+```swift
+import SwiduxAnalytics
+
+let analyticsService: any AnalyticsService = ConsoleAnalyticsService()
+```
+
+`ConsoleAnalyticsService(subsystem: "Swidux", category: "Analytics")` logs every `track` / `identify` / `alias` / `reset` / `flush` to `os.Logger` — visible in the Xcode console and Console.app, quiet in Release — with a deterministic pretty-printer for `AnalyticsValue` (dict keys sorted). It is a *micro version of the real thing*: the mapper, identity transitions, screen-view enrichment, and opt-out all run through the real plugin pipeline, so analytics wiring is developed and QA-tested end to end with no SDK, no token, and no vendor account.
+
+Don't confuse it with the silent `MockAnalyticsService()` — a parameterless no-op for previews and tests, where verification happens against a recording mock, not console output. For *developing* the app, `ConsoleAnalyticsService` is the default because the markers are observable.
+
+Adopting Mixpanel later is purely the two-line `Store.configured()` swap shown under "Swapping providers" — mapper, identity, events, reducers, views, and tests are untouched. The vendor decision is deferred, not foundational.
+
 ## State slice and action enum
 
 ```swift
@@ -194,16 +210,14 @@ Inject `InMemoryKeyValueStore` for both paths to make hydration deterministic. T
 
 ## Plugin construction in `Store.configured()`
 
+**Default (no vendor yet) — develop on `ConsoleAnalyticsService`:**
+
 ```swift
 // App/AppStore.swift
 import SwiduxAnalytics
-import SwiduxMixpanelAnalytics
 
 // inside Store.configured():
-let analyticsService: any AnalyticsService =
-    Secrets.mixpanelToken.isEmpty
-        ? MockAnalyticsService()
-        : MixpanelAnalyticsService(token: Secrets.mixpanelToken)
+let analyticsService: any AnalyticsService = ConsoleAnalyticsService()
 
 plugins.register(
     AnalyticsPlugin<AppState, AppAction>(
@@ -217,7 +231,23 @@ plugins.register(
 )
 ```
 
-The empty-token branch picks the no-op `MockAnalyticsService` from `SwiduxAnalytics`. The choice lives next to the plugin — no environment indirection.
+This is the form you keep for the bulk of development — no `import SwiduxMixpanelAnalytics`, no token. Every tracked event prints, so the wiring is observable while you build.
+
+**After adopting Mixpanel — token-gated:**
+
+```swift
+// App/AppStore.swift
+import SwiduxAnalytics
+import SwiduxMixpanelAnalytics
+
+// inside Store.configured():
+let analyticsService: any AnalyticsService =
+    Secrets.mixpanelToken.isEmpty
+        ? ConsoleAnalyticsService()
+        : MixpanelAnalyticsService(token: Secrets.mixpanelToken)
+```
+
+Once a vendor is chosen, this swap is the *only* change — the plugin registration above is identical. Note the empty-token fallback is `ConsoleAnalyticsService()`, not the silent `MockAnalyticsService()`: a build without a token (a teammate's checkout, CI) should still show analytics output rather than drop it silently. The choice lives next to the plugin — no environment indirection.
 
 `MixpanelAnalyticsService.init(token:)` covers the common knobs: `trackAutomaticEvents` (iOS only), `flushInterval`, `instanceName`, `optOutTrackingByDefault`, `useUniqueDistinctId`, `superProperties`, `serverURL` (EU residency), `useGzipCompression`. For apps that need a fully custom `MixpanelInstance` (proxy server config), the escape hatch is `MixpanelAnalyticsService(instance:)` — that's the only path that still requires `import Mixpanel`, and almost no app needs it.
 

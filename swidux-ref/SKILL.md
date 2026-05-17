@@ -1,11 +1,13 @@
 ---
 name: swidux-ref
-description: Architecture rules and code templates for Swidux — a Redux-style state-management library for SwiftUI — and its provider-agnostic service layer (analytics, paywall). Use when writing Swidux apps, adding actions or reducers, wiring plugins (Persistence, Undo, Killswitch, ParentalGate, Paywall, Analytics, FeatureFlags), or integrating third-party services like Mixpanel or RevenueCat through their Swidux adapter packages. Activate on "Swidux", "@Swidux", "AppStore", "AppReducer", "EntityStore", "killswitch", "paywall", "parental gate", "AnalyticsService", "PaywallService", "MixpanelAnalyticsService", "RevenueCatPaywallService".
+description: Architecture rules and code templates for Swidux — a Redux-style state-management library for SwiftUI — and its provider-agnostic service layer (analytics, paywall). Use when writing Swidux apps, adding actions or reducers, wiring plugins (Persistence, Undo, Killswitch, ParentalGate, Paywall, Analytics, FeatureFlags), or integrating third-party services like Mixpanel or RevenueCat through their Swidux adapter packages. By default app development runs on the SDK-free in-repo dev services (ConsoleAnalyticsService, SimulatedPaywallService, SwiduxDevPaywallUI) so the vendor decision can be deferred indefinitely. Activate on "Swidux", "@Swidux", "AppStore", "AppReducer", "EntityStore", "killswitch", "paywall", "parental gate", "AnalyticsService", "PaywallService", "ConsoleAnalyticsService", "SimulatedPaywallService", "devPaywall", "SwiduxDevPaywallUI", "MixpanelAnalyticsService", "RevenueCatPaywallService".
 ---
 
 # Swidux Reference
 
 Swidux is a Redux-style state-management library for SwiftUI. State lives in one observable store; mutations go through reducers; side effects run as async closures. Macros generate observability boilerplate; plugins handle persistence, undo, paywalls, killswitches, parental gates, analytics, and feature flags. Third-party services (Mixpanel, RevenueCat, …) are accessed through their dedicated Swidux adapter packages — never imported into app code directly.
+
+**Default posture: develop with no vendor.** Because app code only ever speaks the protocol (`AnalyticsService`, `PaywallService`), the recommended way to build a Swidux app is to do the bulk of development on the SDK-free in-repo dev services — `ConsoleAnalyticsService` (logs every analytics call) and `SimulatedPaywallService` + `SwiduxDevPaywallUI` (a fully driveable paywall). The app stays light (no SDK, no API keys, no vendor account), yet every analytics and paywall marker is exercised end to end through the real plugin pipeline. Adopting Mixpanel/RevenueCat later is the same two-line swap in `Store.configured()` as swapping any provider — so the vendor decision can be deferred indefinitely rather than made up front.
 
 This skill captures the rules, conventions, and dispatch lifecycle. Code templates are in `swidux-patterns.md`. Full wiring walkthroughs for the analytics and paywall layers — including the protocol/adapter layering and provider-swap recipe — are in `swidux-analytics.md` and `swidux-paywall.md`.
 
@@ -181,6 +183,8 @@ Undo first, persistence second, then domain plugins.
 
 App code depends on the protocol (`AnalyticsService`, `PaywallService`, `KillswitchService`, …), never on the underlying SDK. The concrete adapter — `MixpanelAnalyticsService` from `SwiduxMixpanelAnalytics`, `RevenueCatPaywallService` from `SwiduxRevenueCatPaywall` — calls `Mixpanel.initialize` / `Purchases.configure` internally; the app never does.
 
+Because app code is protocol-blind, the default `service:` during development is the SDK-free in-repo conformer — `ConsoleAnalyticsService` (`SwiduxAnalytics`) and `SimulatedPaywallService` (`SwiduxPaywall`) — not a vendor adapter. The "swap providers" change below is the *same* two-line change whether you're going dev-default → vendor (the first adoption) or vendor → vendor (Mixpanel → Amplitude); both are deferred, not foundational, decisions.
+
 Vendor names appear in exactly two files: `Package.swift` (the dependency) and `App/AppStore.swift` (the service construction inside `Store.configured()`). For paywalls the one view that attaches the sheet is a third allowed site (`import SwiduxRevenueCatPaywallUI`). Everything else — `@main`, root view, feature views, reducers, environment, models — stays vendor-blind.
 
 Swapping providers (Mixpanel → Amplitude, RevenueCat → StoreKit2) is a two-line change in `Store.configured()` plus the package swap. State slices, actions, reducer dispatches, gate checks, and analytics events are unchanged because they speak the Swidux types (`AnalyticsService`, `AnalyticsEvent`, `PaywallState`, `EntitlementSnapshot`). Any migration that touches more than these sites means the protocol has leaked — find it and push it back.
@@ -274,7 +278,9 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 | Add undo for an action | Make `isUndoable` return `true` for that case |
 | Block on app version | Wire `KillswitchPlugin` (see `swidux-patterns.md`) |
 | Gate a feature on subscription | Check `store.paywall.isGateSatisfied`; otherwise dispatch `.paywall(.request(reason:))` (see `swidux-paywall.md`) |
-| Show the paywall sheet | `.revenueCatPaywall(state: store.paywall) { store.send(.paywall($0)) }` from `SwiduxRevenueCatPaywallUI` |
+| Develop/QA the paywall with no vendor yet (default) | Hold one shared `SimulatedPaywallService`; pass it to `Store.configured()` and `.devPaywall(state:service:onAction:)` from `SwiduxDevPaywallUI` — see `swidux-paywall.md` |
+| Show the paywall sheet | Dev default: `.devPaywall(state:service:onAction:)` from `SwiduxDevPaywallUI`. Post-adoption: `.revenueCatPaywall(state: store.paywall) { store.send(.paywall($0)) }` from `SwiduxRevenueCatPaywallUI` |
+| Develop analytics with no vendor yet (default) | Pass `ConsoleAnalyticsService()` as the plugin `service:` — every call logs to `os.Logger`, no SDK; see `swidux-analytics.md` |
 | Track an analytics event | Return a named `AnalyticsEvent` factory from `AnalyticsMapper` (passive), or dispatch `.analytics(.track(.someEvent()))` from a reducer (effect) — define factories in `extension AnalyticsEvent`, never an event-name enum; see `swidux-analytics.md` |
 | Record a screen view | Dispatch `.analytics(.screenView("Home"))` from the view's `.task` |
 | Identify a signed-in user | `AnalyticsIdentity(userID: \.auth.currentUserID, …)` — see "Identity for analytics" |
@@ -299,7 +305,7 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 - ❌ Calling I/O (Keychain, UserDefaults, file system, network) from the `AnalyticsIdentity` `userID` or `userProperties` closure — closures run on every non-analytics dispatch; hydrate once at launch and read from state
 - ❌ Touching `UserDefaults.standard` directly anywhere in app code (use `KeyValueStore` so tests can inject `InMemoryKeyValueStore`)
 - ❌ Importing or calling any analytics/paywall SDK directly in app code (`import Mixpanel`, `import RevenueCat`, `Mixpanel.initialize`, `Mixpanel.mainInstance().track`, `Purchases.configure`, `Purchases.shared.purchase`). Adapters absorb the SDK; tracking and purchase flows go through `.analytics(...)` / `.paywall(...)` actions
-- ❌ Constructing the analytics or paywall service anywhere but inside `Store.configured()` — not in `@main`'s `App.init()`, not behind an `AppEnvironment.makeAnalyticsService()` helper. The conditional and the binding sit next to the plugin that uses them
+- ❌ Constructing the analytics or paywall service anywhere but inside `Store.configured()` — not in `@main`'s `App.init()`, not behind an `AppEnvironment.makeAnalyticsService()` helper. The conditional and the binding sit next to the plugin that uses them. **One sanctioned exception:** the SDK-free `SimulatedPaywallService` is constructed once in the owning view and passed to *both* `Store.configured()` and `.devPaywall(...)`, because the debug UI must drive the same instance the plugin observes (see `swidux-paywall.md` → "Default: develop and QA with no vendor"). This shared-instance wiring is the dev path's deliberate shape and is removed — collapsing back to the construct-only-in-`Store.configured()` rule — the moment a real provider is adopted
 - ❌ Storing vendor-specific types (`MixpanelInstance`, `CustomerInfo`, `Offerings`) in `AppState`, `AppEnvironment`, or any feature type, or importing `SwiduxRevenueCatPaywallUI` outside the one sheet view. State and environment hold protocol-typed services only
 - ❌ Introducing an event-name enum (in the library, action, or mapper layer) to "fix" stringly-typed analytics. `AnalyticsEvent.name` is intentionally the provider wire key; an adapter would `.rawValue` an enum back to a string anyway. Named `AnalyticsEvent` factories, never an event-name enum (see `swidux-analytics.md` → "Event names are the wire key")
 
@@ -314,6 +320,7 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 - `Swidux` — core (Store, plugins protocol, EntityStore, persistence, undo, macros)
 - `SwiduxKillswitch` — version-blocking plugin
 - `SwiduxParentalGate` — math-challenge gate plugin
-- `SwiduxPaywall` — paywall + entitlement plugin (RevenueCat or StoreKit-shaped)
+- `SwiduxPaywall` — paywall + entitlement plugin (RevenueCat or StoreKit-shaped); also ships the SDK-free `SimulatedPaywallService` dev default
+- `SwiduxDevPaywallUI` — opt-in debug paywall sheet (`.devPaywall(...)`) driving `SimulatedPaywallService`; the no-vendor dev/QA path
 - `SwiduxAnalytics` — provider-agnostic analytics plugin with declarative event mapping
 - `SwiduxFeatureFlags` — feature flags + A/B variants + remote-tunable values from a JSON wire format
