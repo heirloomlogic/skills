@@ -49,7 +49,85 @@ case .paywall:
 - `.presentCustomerCenter` / `.dismissCustomerCenter`
 - `.openManageSubscriptions` — opens the system Manage Subscriptions page
 
-## Plugin construction in `Store.configured()`
+## Default: develop and QA with no vendor
+
+Because app code only ever speaks `PaywallService` / `PaywallState` / `EntitlementSnapshot`, you don't need RevenueCat to build, gate, and QA the paywall. `SwiduxPaywall` ships `SimulatedPaywallService` — a stateful `actor` conformer that is the recommended `service:` while the vendor decision is still open. It's a *micro version of the real thing*: entitlement changes are pushed through `customerInfoStream()`, so they flow through the real `PaywallPlugin` pipeline and survive a later `refreshCustomerInfo` / `restorePurchases` exactly as a RevenueCat or StoreKit service would.
+
+Beyond the `PaywallService` protocol it exposes a simulation surface (driven by the dev UI, not by app code):
+
+```swift
+public actor SimulatedPaywallService: PaywallService {
+    public init(isPro: Bool = false, hasPermanentLicense: Bool = false,
+                subsystem: String = "Swidux", category: String = "Paywall")
+
+    // Not part of PaywallService — the dev sheet drives these:
+    func grantPro(); func grantTrial(); func grantPermanentLicense(); func setFree()
+    func setRestoreShouldFail(_: Bool); func setRefreshShouldFail(_: Bool)
+    func setArtificialDelay(_: Duration)
+}
+
+public enum SimulatedPaywallError: Error, Equatable { case restoreFailed, refreshFailed }
+```
+
+**Modeling limitation.** `EntitlementSnapshot` is only `{ isPro, hasPermanentLicense }`, so `grantTrial()` yields `isPro == true` — it differs from `grantPro()` only in the log line, not in observable state. Model trial-specific UI from your own state, not from the snapshot.
+
+### The dev paywall sheet
+
+`SwiduxDevPaywallUI` is a separate, opt-in library product (`import SwiduxDevPaywallUI`). Its `.devPaywall(state:service:onAction:)` modifier mirrors the shape of the vendor sheet (`.revenueCatPaywall(state:onAction:)`) so the call site is unchanged on adoption. The sheet shows the live `PaywallState`, entitlement-grant buttons, real Restore/Refresh flows, and QA failure/latency toggles.
+
+### Shared-instance wiring
+
+The plugin and the dev sheet must drive the *same* `SimulatedPaywallService` instance — the sheet's buttons mutate the actor, and those changes only reach the store if the plugin is observing that exact instance. So construct it once in the owning view and hand it to both:
+
+```swift
+struct MyApp: App {
+    @State private var paywallService: SimulatedPaywallService
+    @State private var store: AppStore
+
+    init() {
+        let service = SimulatedPaywallService()
+        _paywallService = State(initialValue: service)
+        _store = State(initialValue: .configured(paywallService: service))
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            RootView()
+                .environment(store)
+                .devPaywall(state: store.paywall, service: paywallService) {
+                    store.send(.paywall($0))
+                }
+        }
+    }
+}
+```
+
+This is the **one sanctioned exception** to "construct the service only inside `Store.configured()`" (see `SKILL.md` anti-patterns): the debug UI must drive the same instance the plugin observes, so `Store.configured()` takes a `paywallService:` parameter on the dev path. It is deliberate, scoped to the no-vendor path, and removed the moment a real provider is adopted — at which point `Store.configured()` constructs the vendor service internally again and the rule re-applies unchanged.
+
+`Store.configured()` registers the plugin with the passed instance:
+
+```swift
+extension Store where State == AppState, Action == AppAction {
+    static func configured(paywallService: any PaywallService) -> AppStore {
+        // …
+        plugins.register(
+            PaywallPlugin<AppState, AppAction>(
+                state: \.paywall,
+                action: AppAction.paywall,
+                extractAction: { if case .paywall(let a) = $0 { return a }; return nil },
+                service: paywallService
+            )
+        )
+        // …
+    }
+}
+```
+
+Everything downstream — gating, `.request(reason:)`, the observe/refresh/restore actions, the analytics mapper — is identical to the vendor path. You build the entire paywall surface this way and defer the RevenueCat decision indefinitely.
+
+## Plugin construction in `Store.configured()` (after adopting RevenueCat)
+
+The wiring below is what `Store.configured()` looks like *once a vendor is chosen*. Until then, use the SDK-free `SimulatedPaywallService` form above — this section is the destination, not the starting point.
 
 ```swift
 // App/AppStore.swift
@@ -196,3 +274,29 @@ To swap RevenueCat for a hypothetical StoreKit2-backed adapter, you change two l
 ```
 
 …plus the package dependencies in `Package.swift`. State slice, action enum, reducer dispatches, gate checks, `.request(reason:)` calls, analytics mapper — all unchanged, because they speak `PaywallState` / `PaywallAction` / `EntitlementSnapshot` from `SwiduxPaywall`. (See rule #11 in `SKILL.md`.)
+
+### Adopting a vendor from the SDK-free dev default
+
+The first adoption (`SimulatedPaywallService` → RevenueCat) is the same two-line `Store.configured()` swap, plus it *removes* the dev-only shared-instance wiring:
+
+```diff
+- @State private var paywallService: SimulatedPaywallService
+  @State private var store: AppStore
+
+  init() {
+-     let service = SimulatedPaywallService()
+-     _paywallService = State(initialValue: service)
+-     _store = State(initialValue: .configured(paywallService: service))
++     _store = State(initialValue: .configured())   // constructs RevenueCatPaywallService internally
+  }
+```
+
+```diff
+- import SwiduxDevPaywallUI
++ import SwiduxRevenueCatPaywallUI
+
+- .devPaywall(state: store.paywall, service: paywallService) { store.send(.paywall($0)) }
++ .revenueCatPaywall(state: store.paywall) { store.send(.paywall($0)) }
+```
+
+`Store.configured()` drops the `paywallService:` parameter and constructs the vendor service internally, so the "construct the service only inside `Store.configured()`" rule re-applies with no exception. Everything else — gating, actions, reducer, mapper, tests — is untouched.
