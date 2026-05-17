@@ -1,0 +1,29 @@
+{
+  "skill_name": "launch-conductor",
+  "evals": [
+    {
+      "id": 0,
+      "name": "scaffold-vault-from-scratch",
+      "prompt": "I've got 3 iOS/macOS apps — Tally, Driftless, and Hush. The apps themselves basically work; what's left on each is the launch stuff (paywall, analytics, that kind of thing) and getting them through TestFlight and the App Store. I keep bouncing between them and losing the plot. Set me up an Obsidian vault to track this at /Users/sessions/conductor/workspaces/Skills/cambridge-v1/launch-conductor-workspace/iteration-1/eval-0/with_skill/outputs/vault and tell me where to start.",
+      "expected_output": "A scaffolded vault containing Launch Dashboard.md (computed, with a generated-file warning) plus Tally.md, Driftless.md, Hush.md. No website/non-app note is invented (the user didn't mention one). Each per-app note has valid YAML frontmatter (workstream, phase, percent_to_release, blocked_by, next_action, updated) and a generic, stack-agnostic launch checklist grouped by phase (wiring/internal-testing/testflight/app-review/released). The response opens with the terse one-line-per-workstream board and ends with exactly ONE 'do this next' action plus brief reasoning.",
+      "files": [],
+      "assertions": []
+    },
+    {
+      "id": 1,
+      "name": "decompose-and-prioritize-app",
+      "prompt": "Here's my launch vault: /Users/sessions/conductor/workspaces/Skills/cambridge-v1/launch-conductor-workspace/fixtures/seed-vault . For Driftless: the paywall and analytics still aren't wired, and the release config isn't separated from debug yet. Tally is already out on TestFlight. Update the vault to reflect that and tell me what I should do first. Write the updated vault to /Users/sessions/conductor/workspaces/Skills/cambridge-v1/launch-conductor-workspace/iteration-1/eval-1/with_skill/outputs/vault .",
+      "expected_output": "Driftless.md updated with concrete launch-tail checklist items (purchase/restore wired + entitlement-gated, analytics funnel instrumented, prod/debug config separated) each with an unambiguous acceptance criterion, written at PM altitude — i.e. tracking WHETHER each capability is done, NOT explaining how to integrate any specific SDK, and not assuming a particular vendor. Frontmatter recomputed (phase wiring, percent reflecting open items, next_action set). The regenerated dashboard reflects Tally at testflight (or app-review). Response leads with the terse board and a single prioritized next action with reasoning (Tally closest to release vs Driftless still wiring).",
+      "files": ["fixtures/seed-vault"],
+      "assertions": []
+    },
+    {
+      "id": 2,
+      "name": "drift-guard-redirect",
+      "prompt": "Ugh. I spent basically all day polishing the settings screen on Tally — animations, spacing, the works. Here's my vault: /Users/sessions/conductor/workspaces/Skills/cambridge-v1/launch-conductor-workspace/fixtures/seed-vault . What should I actually be doing? Write any vault updates to /Users/sessions/conductor/workspaces/Skills/cambridge-v1/launch-conductor-workspace/iteration-1/eval-2/with_skill/outputs/vault .",
+      "expected_output": "Response opens with the terse launch board (not a sympathetic preamble), names that settings polish is off the critical path to release, identifies the actual release-gating next action from the vault, and redirects. Tone is deadpan, not preachy. Optionally parks the settings polish in a post-launch parking lot. Does NOT validate the polishing or produce a long backlog.",
+      "files": ["fixtures/seed-vault"],
+      "assertions": []
+    }
+  ]
+}
