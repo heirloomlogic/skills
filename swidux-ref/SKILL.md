@@ -9,7 +9,7 @@ Swidux is a Redux-style state-management library for SwiftUI. State lives in one
 
 **Default posture: develop with no vendor.** Because app code only ever speaks the protocol (`AnalyticsService`, `PaywallService`), the recommended way to build a Swidux app is to do the bulk of development on the SDK-free in-repo dev services — `ConsoleAnalyticsService` (logs every analytics call) and `SimulatedPaywallService` + `SwiduxDevPaywallUI` (a fully driveable paywall). The app stays light (no SDK, no API keys, no vendor account), yet every analytics and paywall marker is exercised end to end through the real plugin pipeline. Adopting Mixpanel/RevenueCat later is the same two-line swap in `Store.configured()` as swapping any provider — so the vendor decision can be deferred indefinitely rather than made up front.
 
-This skill captures the rules, conventions, and dispatch lifecycle. Code templates are in `swidux-patterns.md`. Full wiring walkthroughs for the analytics and paywall layers — including the protocol/adapter layering and provider-swap recipe — are in `swidux-analytics.md` and `swidux-paywall.md`.
+This skill captures the rules, conventions, and dispatch lifecycle. Code templates are in `references/swidux-patterns.md`. Full wiring walkthroughs for the analytics and paywall layers — including the protocol/adapter layering and provider-swap recipe — are in `references/swidux-analytics.md` and `references/swidux-paywall.md`.
 
 ## The 11 architecture rules
 
@@ -189,7 +189,7 @@ Vendor names appear in exactly two files: `Package.swift` (the dependency) and `
 
 Swapping providers (Mixpanel → Amplitude, RevenueCat → StoreKit2) is a two-line change in `Store.configured()` plus the package swap. State slices, actions, reducer dispatches, gate checks, and analytics events are unchanged because they speak the Swidux types (`AnalyticsService`, `AnalyticsEvent`, `PaywallState`, `EntitlementSnapshot`). Any migration that touches more than these sites means the protocol has leaked — find it and push it back.
 
-Full wiring in `swidux-analytics.md` and `swidux-paywall.md`.
+Full wiring in `references/swidux-analytics.md` and `references/swidux-paywall.md`.
 
 ## Domain plugin wiring shape
 
@@ -246,9 +246,9 @@ let analyticsIdentity = AnalyticsIdentity<AppState>(
 )
 ```
 
-Declare `var deviceID: String` on `AppState` (non-optional — it's always present after launch); the keypath form binds the `KeyPath<State, String>` `AnalyticsIdentity` init. Full walkthrough including the `KVKey<String>("device-id")` declaration, accessibility tuning, and test injection in `swidux-analytics.md` and the DocC `KeyValueStoreGuide`.
+Declare `var deviceID: String` on `AppState` (non-optional — it's always present after launch); the keypath form binds the `KeyPath<State, String>` `AnalyticsIdentity` init. Full walkthrough including the `KVKey<String>("device-id")` declaration, accessibility tuning, and test injection in `references/swidux-analytics.md` and the DocC `KeyValueStoreGuide`.
 
-`KeychainKeyValueStore` never prompts the user (no Always Allow/Deny, no Touch ID / Face ID). The macOS entitlement answer is fixed, not a per-app decision: ship a provisioning-profile–signed build and leave `accessGroup: nil`; an unsigned local/CI build that fails the first write with `errSecMissingEntitlement` / `OSStatus` −34018 is a signing condition, not a prompt or a bug — add one team-prefixed `keychain-access-groups` entry. See `swidux-analytics.md` "macOS Keychain entitlement" and DocC `KeyValueStoreGuide`.
+`KeychainKeyValueStore` never prompts the user (no Always Allow/Deny, no Touch ID / Face ID). The macOS entitlement answer is fixed, not a per-app decision: ship a provisioning-profile–signed build and leave `accessGroup: nil`; an unsigned local/CI build that fails the first write with `errSecMissingEntitlement` / `OSStatus` −34018 is a signing condition, not a prompt or a bug — add one team-prefixed `keychain-access-groups` entry. See `references/swidux-analytics.md` "macOS Keychain entitlement" and DocC `KeyValueStoreGuide`.
 
 ## SwiftUI integration rules
 
@@ -276,18 +276,19 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 | Persist a new entity collection | Add `EntityStore<NewEntity>` to AppState, add `StateWriter(keyPath: \.newEntities) { … }` to PersistencePlugin |
 | Persist a scalar preference (theme, last-seen version) | Inject `KeyValueStore` via `Environment`; hydrate at startup, write from an effect |
 | Add undo for an action | Make `isUndoable` return `true` for that case |
-| Block on app version | Wire `KillswitchPlugin` (see `swidux-patterns.md`) |
-| Gate a feature on subscription | Check `store.paywall.isGateSatisfied`; otherwise dispatch `.paywall(.request(reason:))` (see `swidux-paywall.md`) |
-| Develop/QA the paywall with no vendor yet (default) | Hold one shared `SimulatedPaywallService`; pass it to `Store.configured()` and `.devPaywall(state:service:onAction:)` from `SwiduxDevPaywallUI` — see `swidux-paywall.md` |
+| Block on app version | Wire `KillswitchPlugin` (see `references/swidux-patterns.md`); host the config via the shared ConfigWorker (`references/swidux-config-worker.md`) |
+| Gate a feature on subscription | Check `store.paywall.isGateSatisfied`; otherwise dispatch `.paywall(.request(reason:))` (see `references/swidux-paywall.md`) |
+| Develop/QA the paywall with no vendor yet (default) | Hold one shared `SimulatedPaywallService`; pass it to `Store.configured()` and `.devPaywall(state:service:onAction:)` from `SwiduxDevPaywallUI` — see `references/swidux-paywall.md` |
 | Show the paywall sheet | Dev default: `.devPaywall(state:service:onAction:)` from `SwiduxDevPaywallUI`. Post-adoption: `.revenueCatPaywall(state: store.paywall) { store.send(.paywall($0)) }` from `SwiduxRevenueCatPaywallUI` |
-| Develop analytics with no vendor yet (default) | Pass `ConsoleAnalyticsService()` as the plugin `service:` — every call logs to `os.Logger`, no SDK; see `swidux-analytics.md` |
-| Track an analytics event | Return a named `AnalyticsEvent` factory from `AnalyticsMapper` (passive), or dispatch `.analytics(.track(.someEvent()))` from a reducer (effect) — define factories in `extension AnalyticsEvent`, never an event-name enum; see `swidux-analytics.md` |
+| Develop analytics with no vendor yet (default) | Pass `ConsoleAnalyticsService()` as the plugin `service:` — every call logs to `os.Logger`, no SDK; see `references/swidux-analytics.md` |
+| Track an analytics event | Return a named `AnalyticsEvent` factory from `AnalyticsMapper` (passive), or dispatch `.analytics(.track(.someEvent()))` from a reducer (effect) — define factories in `extension AnalyticsEvent`, never an event-name enum; see `references/swidux-analytics.md` |
 | Record a screen view | Dispatch `.analytics(.screenView("Home"))` from the view's `.task` |
 | Identify a signed-in user | `AnalyticsIdentity(userID: \.auth.currentUserID, …)` — see "Identity for analytics" |
 | Identify an anonymous user (no auth) | Hydrate a Keychain UUID into `AppState.deviceID: String`; `AnalyticsIdentity(userID: \.deviceID, …)` — see "Identity for analytics" |
 | Swap analytics or paywall provider | Two lines in `Store.configured()` + the dependency in `Package.swift` (paywall also flips the UI module import in the sheet view) |
 | Gate an action on parent approval | Wire `ParentalGatePlugin`; dispatch `.parentalGate(.request(reason:))` |
-| Add feature flags / A/B variants / remote config | Wire `FeatureFlagsPlugin`; declare typed flags via `BoolFlag` / `VariantFlag` / `ValueFlag`; read with `store.featureFlags.isEnabled(.myFlag)` |
+| Add feature flags / A/B variants / remote config | Wire `FeatureFlagsPlugin`; declare typed flags via `BoolFlag` / `VariantFlag` / `ValueFlag`; read with `store.featureFlags.isEnabled(.myFlag)`; host the JSON via the shared ConfigWorker (`references/swidux-config-worker.md`) |
+| Host / deploy remote killswitch + feature-flag config (incl. multi-app portfolio) | Scaffold & deploy the shared Cloudflare ConfigWorker — one Worker + one KV namespace, keyed `/<appID>/<resource>` (see `references/swidux-config-worker.md`) |
 | Custom cross-cutting feature | Write a `SwiduxPlugin` (see DocC `BuildingADomainPlugin`) |
 
 ## Anti-patterns
@@ -301,13 +302,13 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 - ❌ Registering `PersistencePlugin` before `UndoPlugin` (snapshot must happen before any mutation)
 - ❌ Using regular `var` for state slices that should be `@Slice` (loses per-property observation)
 - ❌ Reading from `KeyValueStore` inside a reducer (reads are for hydration only — pull values into state at startup, then observe state)
-- ❌ Re-deciding the macOS Keychain entitlement per app, or treating `errSecMissingEntitlement` / `OSStatus` −34018 as a runtime/user-prompt bug. The store never prompts; the answer is fixed — provisioning-profile–signed build + `accessGroup: nil`, with a single team-prefixed `keychain-access-groups` entry as the unsigned-local/CI fallback (see "Identity for analytics" and `swidux-analytics.md`)
+- ❌ Re-deciding the macOS Keychain entitlement per app, or treating `errSecMissingEntitlement` / `OSStatus` −34018 as a runtime/user-prompt bug. The store never prompts; the answer is fixed — provisioning-profile–signed build + `accessGroup: nil`, with a single team-prefixed `keychain-access-groups` entry as the unsigned-local/CI fallback (see "Identity for analytics" and `references/swidux-analytics.md`)
 - ❌ Calling I/O (Keychain, UserDefaults, file system, network) from the `AnalyticsIdentity` `userID` or `userProperties` closure — closures run on every non-analytics dispatch; hydrate once at launch and read from state
 - ❌ Touching `UserDefaults.standard` directly anywhere in app code (use `KeyValueStore` so tests can inject `InMemoryKeyValueStore`)
 - ❌ Importing or calling any analytics/paywall SDK directly in app code (`import Mixpanel`, `import RevenueCat`, `Mixpanel.initialize`, `Mixpanel.mainInstance().track`, `Purchases.configure`, `Purchases.shared.purchase`). Adapters absorb the SDK; tracking and purchase flows go through `.analytics(...)` / `.paywall(...)` actions
-- ❌ Constructing the analytics or paywall service anywhere but inside `Store.configured()` — not in `@main`'s `App.init()`, not behind an `AppEnvironment.makeAnalyticsService()` helper. The conditional and the binding sit next to the plugin that uses them. **One sanctioned exception:** the SDK-free `SimulatedPaywallService` is constructed once in the owning view and passed to *both* `Store.configured()` and `.devPaywall(...)`, because the debug UI must drive the same instance the plugin observes (see `swidux-paywall.md` → "Default: develop and QA with no vendor"). This shared-instance wiring is the dev path's deliberate shape and is removed — collapsing back to the construct-only-in-`Store.configured()` rule — the moment a real provider is adopted
+- ❌ Constructing the analytics or paywall service anywhere but inside `Store.configured()` — not in `@main`'s `App.init()`, not behind an `AppEnvironment.makeAnalyticsService()` helper. The conditional and the binding sit next to the plugin that uses them. **One sanctioned exception:** the SDK-free `SimulatedPaywallService` is constructed once in the owning view and passed to *both* `Store.configured()` and `.devPaywall(...)`, because the debug UI must drive the same instance the plugin observes (see `references/swidux-paywall.md` → "Default: develop and QA with no vendor"). This shared-instance wiring is the dev path's deliberate shape and is removed — collapsing back to the construct-only-in-`Store.configured()` rule — the moment a real provider is adopted
 - ❌ Storing vendor-specific types (`MixpanelInstance`, `CustomerInfo`, `Offerings`) in `AppState`, `AppEnvironment`, or any feature type, or importing `SwiduxRevenueCatPaywallUI` outside the one sheet view. State and environment hold protocol-typed services only
-- ❌ Introducing an event-name enum (in the library, action, or mapper layer) to "fix" stringly-typed analytics. `AnalyticsEvent.name` is intentionally the provider wire key; an adapter would `.rawValue` an enum back to a string anyway. Named `AnalyticsEvent` factories, never an event-name enum (see `swidux-analytics.md` → "Event names are the wire key")
+- ❌ Introducing an event-name enum (in the library, action, or mapper layer) to "fix" stringly-typed analytics. `AnalyticsEvent.name` is intentionally the provider wire key; an adapter would `.rawValue` an enum back to a string anyway. Named `AnalyticsEvent` factories, never an event-name enum (see `references/swidux-analytics.md` → "Event names are the wire key")
 
 ## Requirements
 

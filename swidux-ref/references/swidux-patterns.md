@@ -380,7 +380,11 @@ let killswitchPlugin = KillswitchPlugin<AppState, AppAction>(
     action: AppAction.killswitch,
     extractAction: { if case .killswitch(let a) = $0 { return a }; return nil },
     service: KillswitchService.live(
-        endpoint: URL(string: "https://example.com/killswitch.json")!
+        // Shared portfolio backend: one Worker + one KV namespace, keyed
+        // /<appID>/<resource>. Scaffold & deploy: swidux-config-worker.md
+        endpoint: URL(string: "https://<host>/<appID>/killswitch")!,
+        cacheLifetime: 900  // default is 3600s; lower it so an emergency
+                            // block reaches launched apps fast (see below)
     ),
     appVersion: {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -404,6 +408,14 @@ ContentView()
 failure, the plugin falls back to the cached config: dispatches
 `.verdictReceived(...)` from cache **and** `.fetchFailed(message)`, so the
 UI keeps a usable verdict while exposing the error.
+
+**Portfolio hosting.** One Cloudflare Worker + one KV namespace serves
+killswitch *and* feature-flag config for every app, keyed
+`GET /<appID>/<resource>` (`/killswitch`, `/flags`). The Cloudflare KV
+dashboard is the single control plane; onboarding an app is adding KV keys —
+no redeploy, no per-app URL. Unseeded apps fail open (type-aware defaults:
+killswitch → unblocked, flags → empty). Scaffold, deploy, onboard, and
+incident-runbook steps are in `swidux-config-worker.md`.
 
 ## Wiring PaywallPlugin
 
@@ -601,6 +613,10 @@ enum AppAction: Sendable {
 let kv: any KeyValueStore = UserDefaultsKeyValueStore()
 let initial = AppState(featureFlags: .hydrated(from: kv))
 let store = AppStore(initialState: initial, reducer: AppReducer())
+
+// Same shared Worker as the killswitch endpoint, different resource segment
+// (one host serves the whole portfolio). Deploy: swidux-config-worker.md
+let configURL = URL(string: "https://<host>/<appID>/flags")!
 
 let flags = FeatureFlagsPlugin<AppState, AppAction>(
     state: \.featureFlags,
