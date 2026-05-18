@@ -276,7 +276,7 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 | Persist a new entity collection | Add `EntityStore<NewEntity>` to AppState, add `StateWriter(keyPath: \.newEntities) { … }` to PersistencePlugin |
 | Persist a scalar preference (theme, last-seen version) | Inject `KeyValueStore` via `Environment`; hydrate at startup, write from an effect |
 | Add undo for an action | Make `isUndoable` return `true` for that case |
-| Block on app version | Wire `KillswitchPlugin` (see `swidux-patterns.md`) |
+| Block on app version | Wire `KillswitchPlugin` (see `swidux-patterns.md`); host the config via the shared ConfigWorker (`swidux-config-worker.md`) |
 | Gate a feature on subscription | Check `store.paywall.isGateSatisfied`; otherwise dispatch `.paywall(.request(reason:))` (see `swidux-paywall.md`) |
 | Develop/QA the paywall with no vendor yet (default) | Hold one shared `SimulatedPaywallService`; pass it to `Store.configured()` and `.devPaywall(state:service:onAction:)` from `SwiduxDevPaywallUI` — see `swidux-paywall.md` |
 | Show the paywall sheet | Dev default: `.devPaywall(state:service:onAction:)` from `SwiduxDevPaywallUI`. Post-adoption: `.revenueCatPaywall(state: store.paywall) { store.send(.paywall($0)) }` from `SwiduxRevenueCatPaywallUI` |
@@ -287,7 +287,8 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 | Identify an anonymous user (no auth) | Hydrate a Keychain UUID into `AppState.deviceID: String`; `AnalyticsIdentity(userID: \.deviceID, …)` — see "Identity for analytics" |
 | Swap analytics or paywall provider | Two lines in `Store.configured()` + the dependency in `Package.swift` (paywall also flips the UI module import in the sheet view) |
 | Gate an action on parent approval | Wire `ParentalGatePlugin`; dispatch `.parentalGate(.request(reason:))` |
-| Add feature flags / A/B variants / remote config | Wire `FeatureFlagsPlugin`; declare typed flags via `BoolFlag` / `VariantFlag` / `ValueFlag`; read with `store.featureFlags.isEnabled(.myFlag)` |
+| Add feature flags / A/B variants / remote config | Wire `FeatureFlagsPlugin`; declare typed flags via `BoolFlag` / `VariantFlag` / `ValueFlag`; read with `store.featureFlags.isEnabled(.myFlag)`; host the JSON via the shared ConfigWorker (`swidux-config-worker.md`) |
+| Host / deploy remote killswitch + feature-flag config (incl. multi-app portfolio) | Scaffold & deploy the shared Cloudflare ConfigWorker — one Worker + one KV namespace, keyed `/<appID>/<resource>` (see `swidux-config-worker.md`) |
 | Custom cross-cutting feature | Write a `SwiduxPlugin` (see DocC `BuildingADomainPlugin`) |
 
 ## Anti-patterns
