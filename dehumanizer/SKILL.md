@@ -1,22 +1,22 @@
 ---
 name: dehumanizer
-version: 1.2.0
-description: |
+description: >-
   Remove signs of AI-generated writing — slop, ChatGPT-isms, corporate filler,
   em-dash closers, rule-of-three padding, sycophancy, inflated significance —
-  and rewrite in a deadpan, economical voice that preserves meaning and matches
-  register. Use whenever someone wants prose to stop sounding AI-written or
-  machine-made: READMEs, documentation, changelogs, release notes, wikis, blog
-  posts, landing copy, presentations, or any prose in a coding session or IDE.
-  Trigger on phrasings like "make it not sound like ChatGPT", "humanize this",
-  "dehumanize", "deslop it", "strip the AI tells", "reads like a bot", "sounds
-  like a press release", "AI slop", "make it sound human", "edit prose",
-  "rewrite this so it doesn't read as AI" — even if "README" or "documentation"
-  is never said. NOT for: disguising AI authorship or evading AI detectors (this
-  improves the writing, not its provenance); code comments or inline/code
-  documentation; general proofreading, spelling, or grammar fixes on non-AI
+  and rewrite in a deadpan, economical voice that preserves meaning and
+  register. Use when someone wants prose to stop sounding AI-written or
+  machine-made: READMEs, docs, changelogs, release notes, wikis, blog/landing
+  copy, presentations, or any prose in a coding session. Trigger on phrasings
+  like "make it not sound like ChatGPT", "humanize this", "dehumanize", "deslop
+  it", "strip the AI tells", "reads like a bot", "sounds like a press release",
+  "AI slop", "make it sound human", "edit prose", "rewrite this so it doesn't
+  read as AI" — even if "README" isn't said. NOT for: disguising AI authorship
+  or evading AI detectors (improves the writing, not its provenance);
+  code/inline documentation; proofreading, spelling, or grammar fixes on non-AI
   text; translation, summarization, or format conversion; or explaining
-  AI-writing concepts without editing any text.
+  AI-writing concepts without editing text.
+metadata:
+  version: "1.2.0"
 allowed-tools:
   - Read
   - Write
