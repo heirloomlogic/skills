@@ -1,24 +1,23 @@
 ---
 name: launch-conductor
-version: 1.1.0
-description: |
-  Product manager for the last 10% — taking an iOS/macOS app whose own
-  functionality is essentially built the rest of the way to public App Store
+description: >-
+  Product manager for the last 10% — taking an iOS/macOS app whose
+  functionality is essentially built the rest of the way to App Store
   release. Owns the launch tail that never ships itself: paywall/IAP,
   killswitch, feature flags, analytics, release config, TestFlight, and App
-  Store Connect submission. Keeps an Obsidian markdown vault as the single
-  source of truth, re-derives the critical path every session, and surfaces the
-  one highest-leverage next action so detail work never swallows the launch.
-  Works for a single app or a portfolio. Stack-agnostic — no dependency on any
-  particular framework or third-party SDK. Use when the user asks "what do I do
-  next", "where am I", "what's left before I can ship", "I keep bouncing
+  Store Connect submission. Keeps an Obsidian vault as the single source of
+  truth, re-derives the critical path every session, and surfaces the one
+  highest-leverage next action so detail work never swallows the launch.
+  Single app or portfolio; stack-agnostic. Use when the user asks "what do I
+  do next", "where am I", "what's left before I can ship", "I keep bouncing
   between apps", "I'm floundering", "the app works, now what", "track my
-  launch", "set up a launch board/vault", or is taking a feature-complete app
-  through TestFlight and App Store review. Also use when the user reports drift
-  ("I spent all day polishing X") and needs re-orienting to the goal, or wants
-  launch work decomposed into a checklist. NOT for building the app's own
-  features, writing implementation code, marketing copy, or App Store
+  launch", "set up a launch board/vault", is taking a feature-complete app
+  through TestFlight and App Store review, or reports drift ("I spent all
+  day polishing X") and needs re-orienting. NOT for building the app's own
+  features, implementation code, marketing copy, or App Store
   screenshot/asset design.
+metadata:
+  version: "1.1.0"
 allowed-tools:
   - Read
   - Write
