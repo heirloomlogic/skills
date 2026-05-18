@@ -12,8 +12,16 @@ actually uses; **delete inapplicable items** so `percent_to_release` stays
 honest. You track *whether* each capability is done and verifiable — never how
 to implement it.
 
-Each item's sub-bullet is the acceptance criterion: "done" must be checkable
-without judgment. Items not every app needs are marked *(if applicable)*.
+**Every item must be binary.** It is a single yes/no answerable by looking at
+the code or the running app — never "mostly", never "half". If an item could
+be honestly half-checked, it is two items; split it. The sub-bullet is the
+acceptance criterion that removes the judgment ("done" = exactly this is true).
+When you decompose into a note, fold enough of the criterion into the item text
+that the line is unambiguous on its own, because the dashboard shows the next 3
+item lines (not their sub-bullets) — a line the user can't adjudicate at a
+glance is the fire-ant wall this skill exists to prevent. Items not every app
+needs are marked *(if applicable)*; delete the ones the app doesn't use so the
+percentage stays honest.
 
 ---
 
@@ -32,8 +40,8 @@ without judgment. Items not every app needs are marked *(if applicable)*.
 
 - [ ] Analytics SDK initialized only in release/intended builds
   - No analytics in debug unless intended; key from release config, not hardcoded.
-- [ ] The launch-critical funnel is instrumented
-  - First-run, activation, paywall view, purchase, and core action events fire and appear in the provider's live view.
+- [ ] First-run, paywall-view, and purchase events fire and appear in the provider's live view
+  - The launch-critical funnel: every one of those events is observed end to end in the provider, not just coded.
 - [ ] User/device identity and opt-out handled
   - Stable identity set; a user-facing opt-out exists and actually stops collection.
 
@@ -90,8 +98,8 @@ without judgment. Items not every app needs are marked *(if applicable)*.
   - Encryption question answered (set the Info.plist key if it ends the prompt).
 - [ ] External testers invited and on the build
   - At least one external tester has it installed.
-- [ ] Beta feedback triaged
-  - Crash/feedback reviewed; launch-blocking issues added as items, the rest parked post-launch.
+- [ ] Every beta crash/feedback item has been classified launch-blocking or parked
+  - Each one is either an open checklist item (launch-blocking) or in the post-launch parking lot — none left unsorted.
 
 ---
 
