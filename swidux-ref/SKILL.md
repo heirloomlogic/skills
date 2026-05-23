@@ -119,6 +119,17 @@ let persistencePlugin = PersistencePlugin<AppState, AppAction>(
 
 `EntityStore.modify(_:_:)`, `removeAll(where:)`, and `sort(by:)` track changes. The plugin debounces and batches them; you never call `save()` from a reducer. Reducers stay pure; persistence is observed.
 
+**Re-hydrating from disk: merge, don't replace.** Once the store is past initial launch, in-memory state is the authoritative copy of any entity it knows about — there can be unflushed writes sitting in the `PersistencePlugin` debounce window or in-progress edits bound to live UI. A reducer that handles a "refresh from disk" action (e.g. `case .campaignsHydrated(let fetched): state.items = EntityStore(fetched)`) silently clobbers all of that and looks like dropped keystrokes or lost edits to the user. Use the non-destructive `merge` API instead, which records no changes (so it doesn't round-trip back through the persistence pipeline):
+
+```swift
+case .itemsHydrated(let fetched):
+    var merged = state.items
+    merged.merge(from: EntityStore(fetched)) { _, _ in false }  // keep in-memory for shared IDs
+    state.items = merged
+```
+
+This is especially important under `NSPersistentCloudKitContainer` / SwiftData with `cloudKitDatabase: .automatic`: `.NSPersistentStoreRemoteChange` notifications fire for the app's **own** local saves, not just remote-device imports, so a "re-hydrate on remote change" observer will feed the app its own writes — and a wholesale replace turns that into visible data loss. (Filtering by `NSPersistentHistoryTransaction.author` is the canonical way to ignore self-authored transactions; the merge is the load-bearing safety net.) `EntityStore(_:)` is for first-load hydration only — empty store, no live state to clobber.
+
 **Scalar preferences (UserDefaults) use a different mechanism.** `EntityStore` is for collections of identifiable entities. For one-off scalar values (theme, sort order, last-seen version), inject a `KeyValueStore` through `Environment`, declare type-safe keys on `KVKey`, hydrate state at startup, and write from effects:
 
 ```swift
@@ -302,6 +313,7 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 - ❌ Registering `PersistencePlugin` before `UndoPlugin` (snapshot must happen before any mutation)
 - ❌ Using regular `var` for state slices that should be `@Slice` (loses per-property observation)
 - ❌ Reading from `KeyValueStore` inside a reducer (reads are for hydration only — pull values into state at startup, then observe state)
+- ❌ Replacing a live `EntityStore` with `state.items = EntityStore(fetched)` outside of first-load hydration. Mid-session, in-memory is authoritative — clobbering it drops unflushed writes and in-progress UI edits, which surfaces as lost keystrokes under live bindings. Use `merged.merge(from: EntityStore(fetched)) { _, _ in false }` for "refresh from disk" / CloudKit re-hydrate paths (rule #8)
 - ❌ Re-deciding the macOS Keychain entitlement per app, or treating `errSecMissingEntitlement` / `OSStatus` −34018 as a runtime/user-prompt bug. The store never prompts; the answer is fixed — provisioning-profile–signed build + `accessGroup: nil`, with a single team-prefixed `keychain-access-groups` entry as the unsigned-local/CI fallback (see "Identity for analytics" and `references/swidux-analytics.md`)
 - ❌ Calling I/O (Keychain, UserDefaults, file system, network) from the `AnalyticsIdentity` `userID` or `userProperties` closure — closures run on every non-analytics dispatch; hydrate once at launch and read from state
 - ❌ Touching `UserDefaults.standard` directly anywhere in app code (use `KeyValueStore` so tests can inject `InMemoryKeyValueStore`)
