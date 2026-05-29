@@ -133,7 +133,7 @@ This is especially important under `NSPersistentCloudKitContainer` / SwiftData w
 **Scalar preferences (UserDefaults) use a different mechanism.** `EntityStore` is for collections of identifiable entities. For one-off scalar values (theme, sort order, last-seen version), inject a `KeyValueStore` through `Environment`, declare type-safe keys on `KVKey`, hydrate state at startup, and write from effects:
 
 ```swift
-extension KVKey where Value == Theme {
+nonisolated extension KVKey where Value == Theme {
     static let theme = KVKey<Theme>("theme")
 }
 
@@ -156,6 +156,8 @@ case .themeChanged(let theme):
         environment.keyValue.setValue(theme, for: .theme)
     }
 ```
+
+Under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, any decl reached from the macro's nonisolated reconstruction or from `static func hydrated(from:)` must itself be nonisolated — hence `nonisolated extension KVKey …` above, and `nonisolated func` on any free helper that hydration and a reducer share (e.g. a `clampScale` used by both `UIState.hydrated` and the reducer; keep it `internal`, not `private`, so both files reach it). This is a property of *what reads the decl*, not a blanket "annotate everything."
 
 Reads are for **hydration only** — don't read from a reducer mid-cycle. Tests inject `InMemoryKeyValueStore`. Choose `KeychainKeyValueStore` when the value should survive app reinstall (anonymous device IDs are the canonical case — see "Identity for analytics" below, including the fixed macOS entitlement answer); `UserDefaultsKeyValueStore` for everything else. Values are JSON-encoded as `Data`, so `@AppStorage` cannot observe them (intentional — Swidux state is the source of truth).
 
@@ -270,7 +272,7 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 
 ## Conventions
 
-- Re-export Swidux from `AppState.swift`: `@_exported import Swidux`. Other files don't need `import Swidux`.
+- Re-export Swidux from `AppState.swift`: `@_exported import Swidux`. Other files don't need `import Swidux`. **But that re-export covers core Swidux only — not the domain plugin modules.** A view that reads a plugin-owned slice or dispatches a plugin action needs that module's own import: touch `store.analytics.*` / `AnalyticsAction` → `import SwiduxAnalytics`; touch `store.paywall.*` / `PaywallAction` → `import SwiduxPaywall`. Symptom if it's missing: `property 'isOptedOut' is not available due to missing import of defining module 'SwiduxAnalytics'`. Views that only touch app-module `UIState` / `UIAction` need nothing extra.
 - File layout: `App/AppState.swift`, `App/AppAction.swift`, `App/AppReducer.swift`, `App/AppStore.swift`, `App/AppEnvironment.swift`, `App/Effect.swift`. Features go in `Features/<Feature>Reducer.swift`. Models in `Models/`.
 - Tests use Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest.
 - One reducer per feature; root reducer routes by case.
@@ -326,7 +328,8 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 
 - Swift 6.2+ / Xcode 26+
 - macOS 15+ / iOS 18+
-- Strict concurrency (`.swiftLanguageMode(.v6)` is implicit at tools 6.2)
+- **Swift 6 language mode is non-negotiable** (`SWIFT_VERSION = 6.0`; `.swiftLanguageMode(.v6)` is implicit at tools 6.2). A `@Swidux nonisolated struct` only gets a nonisolated synthesized memberwise init under Swift 6 mode. Under **Swift 5 mode + `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`** that init is treated as MainActor-isolated, and the macro's nonisolated state-reconstruction can't call it — you get `call to main actor-isolated initializer … in a synchronous nonisolated context`. Adding an explicit `nonisolated init` does **not** rescue Swift 5 mode; switching to Swift 6 does (and then the explicit init is redundant).
+- After editing the package **product dependencies** of an Xcode project, run `xcodebuild -resolvePackageDependencies` before building.
 
 ## Library targets
 
