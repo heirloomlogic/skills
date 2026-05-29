@@ -192,6 +192,8 @@ let analyticsIdentity = AnalyticsIdentity<AppState>(
 </array>
 ```
 
+This goes in a real `CODE_SIGN_ENTITLEMENTS` file — and an app whose sandbox is configured **only** through build settings (`ENABLE_APP_SANDBOX = YES` and friends, no entitlements file) still needs one, because there is no `ENABLE_*` build setting for `keychain-access-groups`. Point `CODE_SIGN_ENTITLEMENTS` at the file in both Debug and Release; Xcode merges it with the auto-generated sandbox entitlements, so the built app carries both `app-sandbox = true` and the keychain group. `accessGroup:` stays `nil` in code — the entitlement is what the keychain reads.
+
 iOS / iPadOS / tvOS / watchOS need no extra entitlement. The full strictness ranking lives in Swidux DocC `KeyValueStoreGuide` → "macOS sandbox & entitlements".
 
 ### Derived IDs
