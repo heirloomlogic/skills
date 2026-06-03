@@ -31,9 +31,16 @@ nonisolated struct Card: Identifiable, Equatable, Sendable {
 
 This generates `CardModel: @Model final class` (conforming to `PersistableModel`) with the converter trio `init(from:)` / `toDomain()` / `update(from:)` (the last never reassigns `id`), plus `extension Card: PersistableEntity { typealias Model = CardModel }`. By default every stored property is mirrored directly — SwiftData persists scalars *and* `Codable` composites natively, so no manual blob columns.
 
+The generated model is **CloudKit-safe by construction**, which is what lets the *same* model back both the local and the synced container. SwiftData's CloudKit mirroring requires every non-optional attribute to be optional or carry a default value, and every relationship to be optional — validated when the `ModelContainer` is created with `cloudKitDatabase` set. `@Persisted` satisfies this automatically:
+
+- **Non-optional mirrored attributes get a default.** A default you wrote on the domain property (`var count: Int = 0`) is propagated verbatim; otherwise the macro fills a canonical default for the known SwiftData primitives (`String → ""`, `Bool → false`, integers/floats `→ 0`, `Date → .distantPast`, `Data → Data()`, `UUID → UUID()`). Defaults are inert locally — `init(from:)` overwrites them on every load.
+- **A non-optional, non-primitive property** (a custom `Codable` type, `URL`, an enum) has no default the macro can invent. Give it a default (`= …`), make it optional, or mark it `@Inline` — otherwise `@Persisted` emits a compile-time `mirrorRequiresDefault` diagnostic.
+- **Relationships are generated optional** (`var tags: [TagModel]? = nil`); a non-optional to-one `@Relation` is a compile-time `relationRequiresOptional` diagnostic (CloudKit forbids non-optional relationships).
+- **`@Inline` blob columns** default to `Data()`, so any `Codable` type is CloudKit-safe through `@Inline`.
+
 **`@Persisted` is for domain entities; `@Swidux` is for state containers** (`AppState`, `@Slice` slices). Different layers — they never apply to the same type. They emit differently-named peers (`{Type}Model` vs `{Type}Observer`), so in the rare case a type needs both, they compose without conflict.
 
-No `@Attribute(.unique)` is generated on `id`: CloudKit forbids unique constraints. Identity is enforced by upsert-by-`id` inside `EntityDB`, so the *same* generated model backs both local and synced containers.
+No `@Attribute(.unique)` is generated on `id`: CloudKit forbids unique constraints. Identity is enforced by upsert-by-`id` inside `EntityDB` instead. This — together with the CloudKit-safe defaults and optional relationships above — is what lets the *same* generated model back both local and synced containers.
 
 ### Property markers
 
@@ -55,10 +62,10 @@ nonisolated struct Card: Identifiable, Equatable, Sendable {
 
 | Marker | Effect |
 |---|---|
-| *(none)* | Mirror directly as `var name: T`. SwiftData persists scalars and `Codable` composites. |
-| `@Inline` | Force a `Codable` value into a single opaque JSON `Data` column, exposed through a computed accessor of the original type. Keeps a CloudKit record compact; sidesteps SwiftData `Codable`-attribute edge cases. |
+| *(none)* | Mirror directly as `var name: T = <default>` (CloudKit-safe default — see above). SwiftData persists scalars and `Codable` composites. |
+| `@Inline` | Force a `Codable` value into a single opaque JSON `Data` column (defaulting to `Data()`), exposed through a computed accessor of the original type. Keeps a CloudKit record compact; sidesteps SwiftData `Codable`-attribute edge cases. |
 | `@ForeignKey` | Intent/documentation marker on a `UUID`; functionally a mirrored scalar column. |
-| `@Relation(deleteRule:inverse:)` | A SwiftData relationship to another `@Persisted` entity. The property's type references the **domain** type (`[Tag]` / `Tag?` / `Tag`); the model substitutes the `…Model` shadow and the converters map element-by-element. `inverse` is a key path on the *generated model* (`\TagModel.card`). `deleteRule` is a `SwiduxDeleteRule` (`.cascade`, `.nullify`, `.noAction`, `.deny`). |
+| `@Relation(deleteRule:inverse:)` | A SwiftData relationship to another `@Persisted` entity. The property's type references the **domain** type (`[Tag]` / `Tag?` / `Tag`); the model substitutes the `…Model` shadow — always **optional** (`= nil`) for CloudKit safety — and the converters map element-by-element. A non-optional to-one `@Relation` is a `relationRequiresOptional` diagnostic. `inverse` is a key path on the *generated model* (`\TagModel.card`). `deleteRule` is a `SwiduxDeleteRule` (`.cascade`, `.nullify`, `.noAction`, `.deny`). |
 | `@Ignored` | Exclude a derived/denormalized field. **Must be optional** so `toDomain()` can reconstruct it as `nil` on load — a diagnostic fires on a non-optional `@Ignored`. |
 
 ## Local wiring
@@ -149,7 +156,7 @@ Because the coordinator only exposes `rehydrate` (merge) for refresh, rule #8 is
 
 ## CloudKit sync
 
-`SwiduxCloudKitSync` reuses the same `@Persisted` models and the same `PersistenceCoordinator`. Sync only changes how the `ModelContainer` is built (`cloudKitDatabase` set vs `.none`) and adds the toggle, the preflight, and the remote observer.
+`SwiduxCloudKitSync` reuses the same `@Persisted` models and the same `PersistenceCoordinator` — which works precisely because `@Persisted` generates CloudKit-safe models (defaults on every non-optional attribute, optional relationships), so the schema validates when SwiftData builds the container with `cloudKitDatabase` set. Sync only changes how the `ModelContainer` is built (`cloudKitDatabase` set vs `.none`) and adds the toggle, the preflight, and the remote observer.
 
 ### Step 1: Apple Developer portal setup
 
@@ -296,6 +303,7 @@ let all = try await db.fetchAll(CardModel.self)
 - **Rule-#8 merge guarantee**: seed the store, make a live in-memory edit, call `coordinator.rehydrate(into:)`, assert the live edit survives.
 - **Sync, no entitlements**: `SyncStatus.resolve(desired:entitled:account:)` truth table, `SyncPreflightService.mock(ubiquityToken:account:)`, the `KVKey.syncMode` round-trip, and the opt-out toggle path against an in-memory container.
 - **Real two-device mirroring** needs entitlements and a signed-in device — cover it with a manual smoke test: two-device sync, opt-out keeps data local, opt-in merges, signed-out iCloud degrades with a banner, and a build missing the entitlement trips the DEBUG assertion.
+- **CloudKit schema validation is not exercised in-memory.** The macro's CloudKit-safe defaults and optional relationships are only checked when SwiftData builds a container with `cloudKitDatabase` set; the in-memory test stack (and `.none` containers) never validate them. So creating a real CloudKit container on device is its own smoke test — a non-CloudKit-safe schema passes every unit test and crashes only at synced-container creation. `@Persisted` makes generated models safe by construction; this caveat applies to any hand-written `@Model` in the low-level fallback.
 
 ## See also
 
