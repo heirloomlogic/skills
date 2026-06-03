@@ -192,6 +192,11 @@ extension Store where State == AppState, Action == AppAction {
             }
         )
 
+        // Low-level / hand-wired persistence path, shown for reference. The recommended
+        // path is `@Persisted` + `PersistenceCoordinator` from SwiduxPersistence, which
+        // generates the @Model shadow and these writers for you — see
+        // `references/swidux-persistence.md`. Use this manual form only when you need
+        // control the macro can't express.
         let persistencePlugin = PersistencePlugin<AppState, AppAction>(
             writers: [
                 StateWriter(keyPath: \.items) { writes, deletes in
