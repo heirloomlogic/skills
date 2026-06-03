@@ -1,6 +1,6 @@
 ---
 name: swidux-ref
-description: Architecture rules and code templates for Swidux — a Redux-style state-management library for SwiftUI — and its provider-agnostic service layer (analytics, paywall). Use when writing Swidux apps, adding actions or reducers, wiring plugins (Persistence, Undo, Killswitch, ParentalGate, Paywall, Analytics, FeatureFlags), or integrating third-party services like Mixpanel or RevenueCat through their Swidux adapter packages. By default app development runs on the SDK-free in-repo dev services (ConsoleAnalyticsService, SimulatedPaywallService, SwiduxDevPaywallUI) so the vendor decision can be deferred indefinitely. Activate on "Swidux", "@Swidux", "AppStore", "AppReducer", "EntityStore", "killswitch", "paywall", "parental gate", "AnalyticsService", "PaywallService", "ConsoleAnalyticsService", "SimulatedPaywallService", "devPaywall", "SwiduxDevPaywallUI", "MixpanelAnalyticsService", "RevenueCatPaywallService".
+description: Architecture rules and code templates for Swidux — a Redux-style state-management library for SwiftUI — and its provider-agnostic service layer (analytics, paywall) and SwiftData persistence layer. Use when writing Swidux apps, adding actions or reducers, wiring plugins (Persistence, Undo, Killswitch, ParentalGate, Paywall, Analytics, FeatureFlags), setting up local or iCloud/CloudKit persistence (SwiduxPersistence, SwiduxCloudKitSync, the @Persisted macro), or integrating third-party services like Mixpanel or RevenueCat through their Swidux adapter packages. By default app development runs on the SDK-free in-repo dev services (ConsoleAnalyticsService, SimulatedPaywallService, SwiduxDevPaywallUI) so the vendor decision can be deferred indefinitely; persistence starts local-only (no iCloud entitlements) and adds iCloud sync only when needed. Activate on "Swidux", "@Swidux", "AppStore", "AppReducer", "EntityStore", "killswitch", "paywall", "parental gate", "AnalyticsService", "PaywallService", "ConsoleAnalyticsService", "SimulatedPaywallService", "devPaywall", "SwiduxDevPaywallUI", "MixpanelAnalyticsService", "RevenueCatPaywallService", "SwiduxPersistence", "SwiduxCloudKitSync", "@Persisted", "PersistenceCoordinator", "SyncCoordinator", "EntityDB", "iCloud sync", "CloudKit sync", "SwiftData persistence".
 ---
 
 # Swidux Reference
@@ -104,31 +104,36 @@ For every `store.send(action)`:
 
 Per-property observation is preserved by step 6: only changed properties are written back to the observer tree, so SwiftUI views only re-render the parts they read.
 
-### 8. Persistence is automatic via `EntityStore` change tracking
+### 8. Persistence is declare-and-register via `@Persisted` + `PersistenceCoordinator`
+
+The recommended path is `SwiduxPersistence`. Annotate a domain entity with `@Persisted` — the macro generates its SwiftData `@Model` shadow, the value↔model converters, and `PersistableEntity` conformance — then register an `EntityStore` keypath with a coordinator that reuses the core `PersistencePlugin`:
 
 ```swift
-let persistencePlugin = PersistencePlugin<AppState, AppAction>(
-    writers: [
-        StateWriter(keyPath: \.items) { writes, deletes in
-            for item in writes { try? await db.upsert(item) }
-            for id in deletes { try? await db.delete(id: id) }
-        }
-    ]
+@Persisted
+nonisolated struct Card: Identifiable, Equatable, Sendable { var id: UUID; var quote: String }
+
+// In Store.configured() (now async, because hydration awaits disk):
+let container = try! ContainerFactory.makeLocalContainer(models: [CardModel.self])
+let persistence = PersistenceCoordinator<AppState, AppAction>(
+    entities: [.entity(\.cards)],
+    container: container
 )
+plugins.register(persistence.corePlugin)         // register UndoPlugin first if used
+var initial = AppState()
+await persistence.hydrate(into: &initial)         // first-load only
 ```
 
-`EntityStore.modify(_:_:)`, `removeAll(where:)`, and `sort(by:)` track changes. The plugin debounces and batches them; you never call `save()` from a reducer. Reducers stay pure; persistence is observed.
+You write no `StateWriter` body, no `@Model`, no DB actor. `EntityStore.modify(_:_:)`, `removeAll(where:)`, and `sort(by:)` track changes; the plugin debounces and batches them. You never call `save()` from a reducer — reducers stay pure, persistence is observed. Flush on background: `Task { await persistence.corePlugin.flush() }`. Full walkthrough (markers, multiple entities, CloudKit) in `references/swidux-persistence.md`.
 
-**Re-hydrating from disk: merge, don't replace.** Once the store is past initial launch, in-memory state is the authoritative copy of any entity it knows about — there can be unflushed writes sitting in the `PersistencePlugin` debounce window or in-progress edits bound to live UI. A reducer that handles a "refresh from disk" action (e.g. `case .campaignsHydrated(let fetched): state.items = EntityStore(fetched)`) silently clobbers all of that and looks like dropped keystrokes or lost edits to the user. Use the non-destructive `merge` API instead, which records no changes (so it doesn't round-trip back through the persistence pipeline):
+**`@Persisted` is for entities; `@Swidux` is for state containers** — different layers, never the same type.
 
-```swift
-case .itemsHydrated(let fetched):
-    var merged = state.items
-    merged.merge(from: EntityStore(fetched)) { _, _ in false }  // keep in-memory for shared IDs
-    state.items = merged
-```
+**`hydrate` vs `rehydrate` — the merge rule, enforced by the API.** `hydrate(into:)` is first-load only: it *replaces* each `EntityStore` from disk, safe before any live edits exist. `rehydrate(into:)` is the only post-launch refresh path, and it *always merges* preferring in-memory values. Once past launch, in-memory state is authoritative — it may hold unflushed writes in the debounce window or in-progress edits bound to live UI. A wholesale replace silently clobbers them and surfaces as dropped keystrokes / lost edits. The coordinator exposes only `rehydrate` for refresh, so the rule is enforced by construction — no merge closure to remember.
 
-This is especially important under `NSPersistentCloudKitContainer` / SwiftData with `cloudKitDatabase: .automatic`: `.NSPersistentStoreRemoteChange` notifications fire for the app's **own** local saves, not just remote-device imports, so a "re-hydrate on remote change" observer will feed the app its own writes — and a wholesale replace turns that into visible data loss. (Filtering by `NSPersistentHistoryTransaction.author` is the canonical way to ignore self-authored transactions; the merge is the load-bearing safety net.) `EntityStore(_:)` is for first-load hydration only — empty store, no live state to clobber.
+This neutralizes the classic CloudKit trap: `.NSPersistentStoreRemoteChange` fires for the app's **own** local saves, not just remote-device imports, so a "re-hydrate on remote change" observer feeds the app its own writes. Because `rehydrate` merges, that's a no-op instead of visible data loss — `SwiduxCloudKitSync`'s `RemoteChangeObserver` is built on exactly this.
+
+**Linking `SwiduxCloudKitSync` is the single signal the app needs the iCloud/CloudKit/Push entitlement family.** A local-only app links only `SwiduxPersistence` and needs none of them. Both the local and sync wiring — and the Apple Developer portal setup — are in `references/swidux-persistence.md`.
+
+**Low-level fallback.** The hand-wired `PersistencePlugin` + `StateWriter` closures + your own `@Model`/DB actor (see `references/swidux-patterns.md` and DocC `PersistenceMiddlewareGuide`) still works — reach for it only when you need control the macro can't express.
 
 **Scalar preferences (UserDefaults) use a different mechanism.** `EntityStore` is for collections of identifiable entities. For one-off scalar values (theme, sort order, last-seen version), inject a `KeyValueStore` through `Environment`, declare type-safe keys on `KVKey`, hydrate state at startup, and write from effects:
 
@@ -286,7 +291,10 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 | New nested struct slice | `@Slice var slice: SliceState = .init()` |
 | New mutation | New `AppAction` case + reducer arm |
 | New async operation | Reducer returns an `Effect` that calls service and `await send(.someResult(…))` |
-| Persist a new entity collection | Add `EntityStore<NewEntity>` to AppState, add `StateWriter(keyPath: \.newEntities) { … }` to PersistencePlugin |
+| Persist a new entity collection | `@Persisted` the entity (generates its `@Model` shadow), add `EntityStore<NewEntity>` to AppState, add `.entity(\.newEntities)` to `PersistenceCoordinator` (see `references/swidux-persistence.md`) |
+| Add iCloud sync to a persisted app | Link `SwiduxCloudKitSync`, build the container via `CloudContainerFactory`, wire a `SyncCoordinator`; portal/entitlement setup in `references/swidux-persistence.md` |
+| Add a Settings sync on/off toggle | `await sync.setSyncEnabled(isOn, into: &state)` returns the resolved `SyncStatus` (see `references/swidux-persistence.md`) |
+| Refresh persisted data from disk / on a CloudKit remote change | `await persistence.rehydrate(into: &state)` — always merges; never `hydrate` (that replaces and clobbers live edits) |
 | Persist a scalar preference (theme, last-seen version) | Inject `KeyValueStore` via `Environment`; hydrate at startup, write from an effect |
 | Add undo for an action | Make `isUndoable` return `true` for that case |
 | Block on app version | Wire `KillswitchPlugin` (see `references/swidux-patterns.md`); host the config via the shared ConfigWorker (`references/swidux-config-worker.md`) |
@@ -315,7 +323,11 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 - ❌ Registering `PersistencePlugin` before `UndoPlugin` (snapshot must happen before any mutation)
 - ❌ Using regular `var` for state slices that should be `@Slice` (loses per-property observation)
 - ❌ Reading from `KeyValueStore` inside a reducer (reads are for hydration only — pull values into state at startup, then observe state)
-- ❌ Replacing a live `EntityStore` with `state.items = EntityStore(fetched)` outside of first-load hydration. Mid-session, in-memory is authoritative — clobbering it drops unflushed writes and in-progress UI edits, which surfaces as lost keystrokes under live bindings. Use `merged.merge(from: EntityStore(fetched)) { _, _ in false }` for "refresh from disk" / CloudKit re-hydrate paths (rule #8)
+- ❌ Calling `hydrate(into:)` (or `state.items = EntityStore(fetched)`) on a post-launch refresh or remote-change path. That *replaces* and clobbers — mid-session, in-memory is authoritative, so it drops unflushed writes and in-progress UI edits and surfaces as lost keystrokes under live bindings. The only post-launch path is `persistence.rehydrate(into:)`, which always merges (rule #8). `hydrate` is first-load only
+- ❌ Hand-writing a `@Model` class, a DB actor, or a `StateWriter` body when `@Persisted` + `PersistenceCoordinator` generate all three. Reach for the manual `PersistencePlugin`/`StateWriter` path only when you need control the macro can't express (see `references/swidux-persistence.md`)
+- ❌ Adding iCloud/CloudKit/Push entitlements (or a CloudKit container) to a **local-only** app. Link `SwiduxPersistence` alone — it needs none; entitlements follow `SwiduxCloudKitSync`, and adding them otherwise is dead config and an App Review risk
+- ❌ Putting `@Persisted` and `@Swidux` on the same type — they're different layers (`@Persisted` = domain entities in an `EntityStore`; `@Swidux` = state containers). The macro fires on entities only
+- ❌ Treating `.misconfiguredNoEntitlement` as a runtime error to crash on. It's a build/signing bug — degrade to local-only and `assertionFailure` in DEBUG only, never crash a release build
 - ❌ Re-deciding the macOS Keychain entitlement per app, or treating `errSecMissingEntitlement` / `OSStatus` −34018 as a runtime/user-prompt bug. The store never prompts; the answer is fixed — provisioning-profile–signed build + `accessGroup: nil`, with a single team-prefixed `keychain-access-groups` entry as the unsigned-local/CI fallback (see "Identity for analytics" and `references/swidux-analytics.md`)
 - ❌ Calling I/O (Keychain, UserDefaults, file system, network) from the `AnalyticsIdentity` `userID` or `userProperties` closure — closures run on every non-analytics dispatch; hydrate once at launch and read from state
 - ❌ Touching `UserDefaults.standard` directly anywhere in app code (use `KeyValueStore` so tests can inject `InMemoryKeyValueStore`)
@@ -334,6 +346,8 @@ Declare `var deviceID: String` on `AppState` (non-optional — it's always prese
 ## Library targets
 
 - `Swidux` — core (Store, plugins protocol, EntityStore, persistence, undo, macros)
+- `SwiduxPersistence` — SwiftData persistence: `@Persisted` macro + `PersistenceCoordinator` (reuses the core `PersistencePlugin`); local-only, no iCloud entitlements
+- `SwiduxCloudKitSync` — opt-in iCloud sync on top of `SwiduxPersistence`: runtime toggle (`SyncCoordinator`), entitlement/account detection (`SyncPreflightService` → `SyncStatus`), merge-based `RemoteChangeObserver`
 - `SwiduxKillswitch` — version-blocking plugin
 - `SwiduxParentalGate` — math-challenge gate plugin
 - `SwiduxPaywall` — paywall + entitlement plugin (RevenueCat or StoreKit-shaped); also ships the SDK-free `SimulatedPaywallService` dev default

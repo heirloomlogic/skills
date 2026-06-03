@@ -13,39 +13,27 @@ Agent skills published by [Heirloom Logic LLC](https://heirloomlogic.com) for Cl
 
 ## Install
 
-**GitHub CLI** (recommended; multi-agent, needs `gh` ≥ v2.90.0):
+Requires `gh` ≥ v2.90.0 and an authenticated GitHub account with read access to this repo.
 
 ```bash
-gh skill install heirloomlogic/skills swidux-ref --agent claude-code --scope user
+# Claude Code
+gh skill install heirloomlogic/skills dehumanizer --agent claude-code --force --scope user
+gh skill install heirloomlogic/skills persnicket-ref --agent claude-code --force --scope user
+gh skill install heirloomlogic/skills swidux-ref --agent claude-code --force --scope user
+gh skill install heirloomlogic/skills tightlip-ref --agent claude-code --force --scope user
+
+# Codex
+gh skill install heirloomlogic/skills dehumanizer --agent codex --force --scope user
+gh skill install heirloomlogic/skills persnicket-ref --agent codex --force --scope user
+gh skill install heirloomlogic/skills swidux-ref --agent codex --force --scope user
+gh skill install heirloomlogic/skills tightlip-ref --agent codex --force --scope user
 ```
 
-- `--scope user` installs to `~/.claude/skills/swidux-ref/`.
-- `--scope project` installs to `<cwd>/.claude/skills/swidux-ref/` so a team can commit it.
-- Other agents: `--agent codex`, `--agent cursor`, `--agent gemini-cli`, etc. `gh skill install --help` shows the full list.
-
-**All skills at once:** there is no single-command "install all". `gh skill install` takes one skill name per call, so loop over them:
-
-```bash
-for s in dehumanizer persnicket-ref swidux-ref tightlip-ref; do
-  gh skill install heirloomlogic/skills "$s" --agent claude-code --scope user
-  gh skill install heirloomlogic/skills "$s" --agent codex       --scope user
-done
-```
-
-`--agent claude-code` installs to `~/.claude/skills/`. `--agent codex` installs to the shared `~/.agents/skills/` directory (Codex, Cursor, Gemini CLI, and other agents read from there). Run both lines to cover both locations.
+For more options please see the [gh skill install](https://cli.github.com/manual/gh_skill_install) documentation.
 
 ## Updating
 
-Re-run the install command — it overwrites the skill in place:
-
-```bash
-for s in dehumanizer persnicket-ref swidux-ref tightlip-ref; do
-  gh skill install heirloomlogic/skills "$s" --agent claude-code --scope user
-done
-```
-
-(`gh skill update --all` also works, but only for skills it installed itself —
-it can't update skills added by `npx` or copied in manually.)
+Re-run the install command — it overwrites the skill in place.
 
 ## Versioning
 
