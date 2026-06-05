@@ -1,6 +1,6 @@
 ---
 name: persnicket-ref
-description: Setup and usage reference for the Persnicket SPM plugin — a lightweight `swift-format` wrapper for Swift packages. Use when adding lint or format tooling to a Swift package or Xcode project, when you see `Persnicket`, `Persnoop`, or `Persnipe` in a `Package.swift`, or when wiring `swift-format` into GitHub Actions CI. Covers the SPM dependency line, per-target `Persnoop` build-tool plugin attachment, the `Persnipe` `format-source-code` command, choosing or generating a `.swift-format` config (vanilla `swift-format dump-configuration` vs. Persnicket's opinionated config), Linux/macOS toolchain caveats, and the recommended GitHub Actions workflow with the `bin/ci-lint-setup` helper and inline-annotation problem matcher.
+description: Setup and usage reference for the Persnicket SPM plugin — a lightweight `swift-format` wrapper for Swift packages. Use when adding lint or format tooling to a Swift package or Xcode project, when you see `Persnicket`, `Persnoop`, or `Persnipe` in a `Package.swift`, or when wiring `swift-format` into GitHub Actions CI. Covers the SPM dependency line, per-target `Persnoop` build-tool plugin attachment, the `Persnipe` `format-source-code` command, choosing or generating a `.swift-format` config (vanilla `swift-format dump-configuration` vs. Persnicket's opinionated config), Linux/macOS toolchain caveats, the recommended GitHub Actions workflow with the `bin/ci-lint-setup` helper and inline-annotation problem matcher, and keeping Persnoop dev-only when publishing a Swift package so consumers don't inherit the build-tool plugin — gating it behind a gitignored `.dev-tooling` sentinel and the `swift package purge-cache` reset that toggling it requires.
 ---
 
 # Persnicket Reference
@@ -36,6 +36,8 @@ Attach **Persnoop** to each target you want linted on every build:
 In Xcode: **File → Add Package Dependencies**, paste the URL, then attach the plugin to a target under the target's **Build Phases → Run Build Tool Plug-ins**.
 
 You don't need to declare Persnipe in any target — it's a command plugin, available package-wide once the dependency is added.
+
+> If the package you're attaching Persnoop to **publishes a product** others depend on, don't attach it unconditionally — that leaks Persnicket into every consumer's graph. See [Keeping Persnoop dev-only in a published package](#keeping-persnoop-dev-only-in-a-published-package).
 
 ## Persnoop vs. Persnipe — which to use
 
@@ -90,6 +92,19 @@ What the opinionated config enforces (highlights):
 - `AllPublicDeclarationsHaveDocumentation`, `ValidateDocumentationComments`
 - `FileScopedDeclarationPrivacy` set to `private`
 - `UseEarlyExits`, `OmitExplicitReturns`, `UseShorthandTypeNames`
+
+## Keeping Persnoop dev-only in a published package
+
+If your package **publishes a product** (a library or plugin others depend on), attaching Persnoop to its targets leaks Persnicket into every downstream consumer's graph — forcing them to resolve and run your dev-only linter just to build. (This is specific to build-tool plugins on a published target; command plugins like Persnipe don't carry downstream.) Apps at the top of their graph aren't affected.
+
+The fix is to gate the dev dependency and the `Persnoop` attachments in `Package.swift` on a gitignored `.dev-tooling` sentinel file — present only in a maintainer's clone and in CI:
+
+```swift
+let isDevBuild = FileManager.default.fileExists(atPath: devSentinel)
+let devPlugins: [Target.PluginUsage] = isDevBuild ? [.plugin(name: "Persnoop", package: "Persnicket")] : []
+```
+
+Consumers evaluate a clean, plugin-free manifest; maintainers `touch .dev-tooling` to keep lint-on-build. There's one sharp edge — SwiftPM caches the evaluated manifest by its *text*, so toggling the sentinel after a build needs `swift package purge-cache` (not `reset`). See **`references/dev-only-gating.md`** for the full `Package.swift` recipe, the CI delta, the cache gotcha, and the `CONTRIBUTING.md` note.
 
 ## Requirements
 
