@@ -1,6 +1,6 @@
 ---
 name: tightlip-ref
-description: Setup and code patterns for Tightlip — a SwiftPM build-tool plugin that injects secrets into a Swift app at compile time via a generated `Secrets` enum. Use when integrating Tightlip into a new app, adding or renaming a secret, configuring per-environment keys (staging vs. production), debugging Lipservice build failures, placing `Secrets.yml`, or referencing `Secrets.<key>` in Swift code. Activate on "Tightlip", "Lipservice", "Secrets.yml", "TIGHTLIP_ENV", "build-time secrets", ".zshenv API key", or when a project's Package.swift depends on Tightlip.
+description: Setup and code patterns for Tightlip — a SwiftPM build-tool plugin that injects secrets into a Swift app at compile time via a generated `Secrets` enum. Use when integrating Tightlip into a new app, adding or renaming a secret, configuring per-environment keys (staging vs. production), wiring Tightlip into CI (GitHub Actions / `xcodebuild` build/test/archive lanes), debugging Lipservice build failures, placing `Secrets.yml`, or referencing `Secrets.<key>` in Swift code. Activate on "Tightlip", "Lipservice", "LipserviceTool", "Secrets.yml", "TIGHTLIP_ENV", "build-time secrets", ".zshenv API key", "PhaseScriptExecution Lipservice", "skipPackagePluginValidation", or when a project's Package.swift depends on Tightlip.
 ---
 
 # Tightlip Reference
@@ -34,8 +34,8 @@ Place `Secrets.yml` at the target's **source root**: `Sources/MyApp/Secrets.yml`
 ### Xcode project (no Package.swift)
 
 1. `File > Add Package Dependencies…` → paste `https://github.com/heirloomlogic/Tightlip` → Dependency Rule **Up to Next Major** from `1.0.0`. (`Add Local…` works for vendored checkouts.)
-2. Target → `Build Phases > Run Build Tool Plug-ins` → add **Lipservice**.
-3. Place `Secrets.yml` at `<ProjectRoot>/<TargetName>/Secrets.yml` — the directory next to `.xcodeproj`. `<TargetName>` is the target's **display name**, and the path is resolved on the filesystem; the file's position in the Project Navigator is irrelevant. For a stock app template, this is the existing `<TargetName>/` folder.
+2. Target → `Build Phases > Run Build Tool Plug-ins` → add **Lipservice**. Attach **only** the `Lipservice` plugin here. The Add-Package dialog also lists a `LipserviceTool` **executable** product — do **not** add it to *Frameworks, Libraries, and Embedded Content*. That's the plugin's host tool; the plugin invokes it itself, and linking it into an app target builds a host executable for the wrong platform.
+3. Place `Secrets.yml` at `<ProjectRoot>/<TargetName>/Secrets.yml` — the directory next to `.xcodeproj`. `<TargetName>` is the target's **display name**, which **may differ from the folder your Swift sources live in**. The plugin resolves `xcodeProject.directoryURL / <displayName> / Secrets.yml` purely by filesystem path; the file's group/location in the Project Navigator is irrelevant. For a stock app template the display name matches the existing `<TargetName>/` source folder, so the file lands there. For a renamed target (e.g. display name `IAA`, sources in `IPhoneApplication/`), create a **new** `IPhoneApplication/IAA/` folder for `Secrets.yml` even though no Swift sources live in it.
 4. Reference anywhere in the target: `Secrets.revenueCatAPIKey`.
 
 ### Caller imports nothing
@@ -70,6 +70,8 @@ production:
 ```
 
 Each top-level identifier followed by `:` (no value) opens a section. Section bodies indent **exactly 2 spaces**. All sections must declare the same set of property names — adding `hmacSigningKey` to `production` only is a parse error.
+
+Only the **resolved** section's env vars are required for a given build, so a Debug/non-prod build never needs the production secrets. For a value that's identical across environments, point both sections at the **same env var name** (e.g. `revenueCatAPIKey: ACME_REVENUECAT_API_KEY` under both) — the developer then exports just one variable.
 
 ### Grammar rules (strict, on purpose)
 
@@ -130,6 +132,26 @@ revenueCatAPIKey: REVENUECAT_API_KEY
 
 The directive is recognized **only** as the first non-blank, non-comment line. Anything after a section header or mapping is parsed as a secret declaration.
 
+## Continuous integration (CI)
+
+The plugin runs on **every** `xcodebuild` invocation that compiles the target — `build`, `test`, **and** `archive`. Each of those lanes needs the secret env vars; a lane that only lints (e.g. SwiftLint) doesn't compile and is exempt. CI has no `~/.zshenv`, so the vars are read straight from `ProcessInfo` — set them in the job's `env:` block, no sourcing needed.
+
+- **Provide secrets on every compiling lane.** A common miss is wiring secrets into the archive/distribution lanes but forgetting the unit-test lane — the test build then fails with the plugin's "environment variable must be set" error. Enumerate every job that compiles the target and set the vars in each.
+- **Use a dummy value where the secret isn't exercised.** Test lanes rarely read the secret at runtime, so a non-empty placeholder satisfies the build without putting the real production secret into your most-frequently-run, artifact-uploading workflow:
+  ```yaml
+  - name: Run unit tests
+    env:
+      ACME_API_KEY: dummy-value-for-tests   # tests don't use the real secret
+    run: xcodebuild test …
+  ```
+- **Pass `-skipPackagePluginValidation`.** CI runners can't interactively approve package plugins; add this flag to `xcodebuild` so Lipservice runs unattended.
+- **Don't pass `-sdk iphonesimulator`.** It forces the plugin's host tool to build for the simulator and the build-tool phase fails (see [Troubleshooting](#troubleshooting)). Select the simulator with `-destination` alone.
+- **Capture the raw log.** Pretty-printers like `xcbeautify` swallow the build-phase stderr where the real Lipservice error lives, leaving only a generic `PhaseScriptExecution … failed`. Tee the raw output so you can read it:
+  ```sh
+  xcodebuild test … 2>&1 | tee raw.log | xcbeautify
+  grep -iE "secrets|environment variable|lipservice" raw.log
+  ```
+
 ## Using secrets in code
 
 ```swift
@@ -157,6 +179,8 @@ let signature = Crypto.sign(data: payload, key: Secrets.hmacSigningKey)
 3. **Build.** Lipservice regenerates `Tightlip.swift` automatically.
 4. **Reference** as `Secrets.newThingKey`.
 
+> **Migrating an existing literal?** After moving a hardcoded value into Tightlip, `git grep` the secret across the **whole** repo. Derived, committed artifacts — SwiftLint baselines, snapshot fixtures, `.resolved`/lockfiles — can retain a verbatim copy even after you delete the source line.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
@@ -168,7 +192,9 @@ let signature = Crypto.sign(data: payload, key: Secrets.hmacSigningKey)
 | `error: sections must declare the same properties` | A sectioned config has a property in one section but not another. | Add the missing property to every section (and export every corresponding env var), or remove it everywhere. |
 | Plugin doesn't regenerate after changing an env var | The plugin's input-tracking didn't see a change, or you're looking at a stale build. | `xcodebuild clean` (or Product → Clean Build Folder) to force regeneration. |
 | `Secrets` is "unresolved identifier" at the call site | Plugin not attached to this target, or `Secrets.yml` not at the expected path. | Xcode: confirm Lipservice is under Build Phases → Run Build Tool Plug-ins. SwiftPM: confirm the `.plugin(...)` line is on this target. Confirm `Secrets.yml` path (see [Setup](#setup)). |
-| Works locally, fails on CI with "missing env var" | CI doesn't have your `~/.zshenv`. | Set the var in the CI job's `env:` block (or whatever your runner uses). `ProcessInfo` is read directly; no sourcing needed. |
+| Works locally, fails on CI with "missing env var" | CI doesn't have your `~/.zshenv`. | Set the var in the CI job's `env:` block (or whatever your runner uses). `ProcessInfo` is read directly; no sourcing needed. Set it on **every** compiling lane — see [Continuous integration](#continuous-integration-ci). |
+| `PhaseScriptExecution Lipservice … failed` only in a simulator or test build | `xcodebuild` was passed `-sdk iphonesimulator`, which forces the plugin's **host** tool (`LipserviceTool`) to compile for the simulator instead of macOS, so the build host can't exec it. | Drop `-sdk`; select the simulator with `-destination` alone. Host tools then build for macOS. |
+| CI shows only a generic `PhaseScriptExecution … failed` with no Lipservice detail | A pretty-printer (`xcbeautify`/`xcpretty`) swallowed the build-phase stderr where the real error lives. | Re-run capturing the raw log: `xcodebuild … 2>&1 \| tee raw.log \| xcbeautify`, then `grep -iE "secrets\|environment variable\|lipservice" raw.log`. |
 
 ## Constraints and gotchas
 
@@ -187,6 +213,7 @@ let signature = Crypto.sign(data: payload, key: Secrets.hmacSigningKey)
 | Add an API key | Export in `~/.zshenv`, add line to `Secrets.yml`, rebuild, reference `Secrets.<name>` |
 | Different keys per env | Convert `Secrets.yml` to sectioned, set `TIGHTLIP_ENV` (or rely on `prod`/`production` inference for the two-env case) |
 | CI release lane | Set the env vars in the runner's `env:` block; set `TIGHTLIP_ENV=production` (or build with `CONFIGURATION=Release`) |
+| Any CI lane that compiles the target (build/test/archive) | Set the env vars (dummy value OK where the secret isn't used) + `-skipPackagePluginValidation`; never pass `-sdk iphonesimulator`. See [Continuous integration](#continuous-integration-ci) |
 | Non-zsh shell on dev's machine | Add `envFile: ~/.your-file` to the top of `Secrets.yml`; keep the file in `export KEY=value` syntax |
 | Rotate a key | Update the env var, rebuild. (Source control of `Secrets.yml` doesn't change.) |
 | Stop tracking a key | Remove the line(s) from `Secrets.yml` and any call sites. The env var can stay exported harmlessly. |
