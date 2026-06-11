@@ -41,7 +41,7 @@ You don't need to declare Persnipe in any target — it's a command plugin, avai
 
 ## Persnoop vs. Persnipe — which to use
 
-- **Persnoop** for *enforcement*: lints on every build, fails noisily, lives in CI. Use when you want a style violation to feel like a compile error.
+- **Persnoop** for *visibility*: lints on every build and surfaces violations as **build warnings** (inline in Xcode). It never fails the build — `swift-format lint` only exits non-zero in `--strict` mode, and a failing pre-build step would block compilation. For hard enforcement, run `swift-format lint --strict` directly in CI (see the CI section).
 - **Persnipe** for *reformatting*: run it on demand to rewrite files in-place. Use when you want to bulk-fix existing code or fix a single file's formatting.
 
 They aren't mutually exclusive. A common pattern is Persnoop attached to every target plus Persnipe available for quick reformats.
