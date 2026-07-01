@@ -150,6 +150,48 @@ plugins.register(
 
 `RevenueCatPaywallService(entitlementID:)` binds the entitlement identifier that surfaces as `isPro`. For a lifetime SKU alongside a subscription, pass `permanentLicenseEntitlementID:` for the second identifier (surfaces as `hasPermanentLicense`).
 
+## Last-known-good entitlement resilience
+
+`PaywallState` (gate verdict, account display, sheet) is populated *only* from the wrapped `PaywallService`'s snapshots. On a slow, silent, or throwing read at cold launch, the plugin emits `.refreshFailed(...)` and `isPro` / `hasPermanentLicense` stay at the `PaywallState()` default — **free**. So a paid user can flash as un-entitled until the next successful read. The fix is a *last-known-good* gate, and it belongs in a `PaywallService` **decorator that feeds the plugin** — not in an app-level payload/context closure, which only hardens a server payload and never touches the `PaywallState` slice that actually decides whether the user is shown as free.
+
+`SwiduxPaywall` ships that decorator: `ResilientPaywallService` wraps any `PaywallService` plus a `KeyValueStore` and persists the last entitlement it saw.
+
+```swift
+public struct ResilientPaywallService: PaywallService {
+    public init(base: any PaywallService, store: any KeyValueStore,
+                maxAttempts: Int = 2, seedsFromCache: Bool = true)
+    public func customerInfo() async throws -> EntitlementSnapshot
+    public func customerInfoStream() -> AsyncStream<EntitlementSnapshot>
+    public func restorePurchases() async throws -> EntitlementSnapshot
+    public func currentSnapshot() async -> EntitlementSnapshot   // non-throwing
+}
+
+public struct CachedEntitlement: Codable, Sendable, Equatable { /* … */ }
+
+public extension KVKey where Value == CachedEntitlement {
+    static let lastKnownEntitlement = KVKey<CachedEntitlement>("swidux.paywall.lastKnownEntitlement.v1")
+}
+```
+
+Behavior:
+
+- `customerInfo()` retries the base up to `maxAttempts` (a simple count, no backoff — default `2`), then **falls back to the cached snapshot**. It rethrows only when the user is genuinely unknown (no live answer *and* no cache).
+- `customerInfoStream()` **seeds the cached value first** (when `seedsFromCache` is on — the default) so a paid user is entitled from frame one, then forwards and persists every live snapshot.
+- `restorePurchases()` persists on success.
+- `currentSnapshot()` is a non-throwing convenience for any entitlement reader outside the plugin.
+
+The server stays authoritative: a later live snapshot always overwrites the cache. It's a plain `public struct` (nonisolated-by-default, so it's off-main-safe under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`) — a decorator only, with no `PaywallPlugin`-level auto-wrapping.
+
+Construct it once and feed the **same wrapped instance** to the plugin and to any other entitlement reader:
+
+```swift
+let resilient = ResilientPaywallService(base: paywallService, store: UserDefaultsKeyValueStore())
+// PaywallPlugin(..., service: resilient)   // gate + account display
+// await resilient.currentSnapshot()        // any other entitlement reader, off-main
+```
+
+On the SDK-free dev path the resilient wrapper is still what the plugin consumes, but the dev paywall *sheet* keeps driving the **raw** `SimulatedPaywallService` — its grant/QA buttons must mutate the actor the sheet owns, not the decorator around it.
+
 ## Starting the entitlement stream at launch
 
 The plugin doesn't auto-subscribe — dispatch `.observeCustomerInfo` once, typically from the root view:
