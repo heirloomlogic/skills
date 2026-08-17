@@ -17,16 +17,10 @@ Requires `gh` ≥ v2.90.0 and an authenticated GitHub account with read access t
 
 ```bash
 # Claude Code
-gh skill install heirloomlogic/skills dehumanizer --agent claude-code --force --scope user
-gh skill install heirloomlogic/skills persnicket-ref --agent claude-code --force --scope user
-gh skill install heirloomlogic/skills swidux-ref --agent claude-code --force --scope user
-gh skill install heirloomlogic/skills tightlip-ref --agent claude-code --force --scope user
-
-# Codex
-gh skill install heirloomlogic/skills dehumanizer --agent codex --force --scope user
-gh skill install heirloomlogic/skills persnicket-ref --agent codex --force --scope user
-gh skill install heirloomlogic/skills swidux-ref --agent codex --force --scope user
-gh skill install heirloomlogic/skills tightlip-ref --agent codex --force --scope user
+gh skill install heirloomlogic/skills dehumanizer --agent claude-code --force --scope user --upstream
+gh skill install heirloomlogic/skills persnicket-ref --agent claude-code --force --scope user --upstream
+gh skill install heirloomlogic/skills swidux-ref --agent claude-code --force --scope user --upstream
+gh skill install heirloomlogic/skills tightlip-ref --agent claude-code --force --scope user --upstream
 ```
 
 For more options please see the [gh skill install](https://cli.github.com/manual/gh_skill_install) documentation.

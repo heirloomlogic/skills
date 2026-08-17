@@ -16,7 +16,7 @@ description: >-
   text; translation, summarization, or format conversion; or explaining
   AI-writing concepts without editing text.
 metadata:
-  version: "1.2.0"
+  version: "2.0.0"
 allowed-tools:
   - Read
   - Write
@@ -53,14 +53,23 @@ When given text to dehumanize:
 Read `references/patterns.md` for the full catalog with examples. Its table of
 contents lists every pattern, grouped: **Content** (significance inflation,
 name-dropping, vague attribution, formulaic sections), **Language and grammar**
-(AI vocabulary, copula avoidance, negative parallelism, synonym cycling,
-passive/subjectless fragments, persuasive-authority tropes), **Style** (em
-dashes, boldface, inline-header lists, title case, emojis, curly quotes,
-hyphen-pair consistency, markup artifacts, fragmented headers),
-**Communication** (chatbot artifacts, disclaimers, sycophancy), and **Filler
-and hedging** (filler phrases, excessive hedging, generic conclusions,
-signposting). Work from the catalog itself, not this summary — it's the source
-of truth and it grows.
+(AI vocabulary, copula avoidance, negative parallelism, synonym cycling and
+repeated openings, passive/subjectless fragments, persuasive-authority tropes,
+stiff synonyms, formulaic sayings), **Style** (em dashes, boldface,
+inline-header lists, title case, emojis, curly quotes, hyphen-pair consistency,
+document skeleton, vendor markup artifacts, fragmented headers, unnecessary
+tables), **Communication** (chatbot artifacts, disclaimers, sycophancy,
+placeholder text), **Filler and hedging** (filler phrases, excessive hedging,
+generic conclusions, signposting), and **Drafting scaffolding left in** (unraised
+objections, fake alternatives, narrating the previous version). Work from the
+catalog itself, not this summary — it's the source of truth and it grows.
+
+The catalog ends with three calibration sections: **What not to flag**, **Human
+details to keep**, and **No longer reliable tells**. Read them. Most of these
+patterns are tells only in aggregate, several of the loudest ones have aged out,
+and a few — filler phrases, hedging, em dashes — now point the *other* way when
+they appear in isolation. Over-applying the catalog produces text that reads more
+machine-made, not less.
 
 ---
 
@@ -117,10 +126,12 @@ These performative moves are hollow regardless of context. Cut them:
 1. Read the input text carefully
 2. Identify all instances of the patterns in `references/patterns.md`
 3. Assess each instance: is it genuine AI slop, or a rhetorical device a human would actually use?
-4. Rewrite the slop. Leave the human stuff alone.
-5. Check the register: does the output match the input's intended context (docs, blog, email, presentation)?
-6. Check for voice anti-patterns: anything performative or hollow?
-7. Present the dehumanized version
+4. Check the flagged list against "What not to flag" and "Human details to keep". Drop anything that survives only as a lone instance of a weak tell
+5. Rewrite the slop. Leave the human stuff alone.
+6. Check the register: does the output match the input's intended context (docs, blog, email, presentation)?
+7. Check for voice anti-patterns: anything performative or hollow?
+8. Confirm no fact, name, number, date, or quote was lost or invented in the rewrite
+9. Present the dehumanized version
 
 ## Output Format
 
