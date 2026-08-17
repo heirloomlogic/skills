@@ -39,17 +39,23 @@ this list:
 - **Content** — significance inflation, notability name-dropping, fake -ing
   analysis, promotional tone, vague attribution, formulaic "challenges" sections
 - **Language and grammar** — AI vocabulary, copula avoidance, negative
-  parallelism and tailing negation, rule of three, synonym cycling, false
-  ranges, passive/subjectless fragments, persuasive-authority tropes
+  parallelism and tailing negation, rule of three, synonym cycling and repeated
+  openings, false ranges, passive/subjectless fragments, persuasive-authority
+  tropes, stiff synonyms for plain verbs, formulaic sayings
 - **Style** — em dashes (incl. the sales-pitch closer), boldface, inline-header
-  lists, title case, emojis, curly quotes, hyphen-pair consistency, AI markup
-  and citation artifacts, fragmented headers
-- **Communication** — chatbot artifacts, knowledge-cutoff disclaimers, sycophancy
+  lists, title case, emojis, curly quotes, hyphen-pair consistency, document
+  skeleton, vendor markup and citation artifacts, fragmented headers,
+  unnecessary tables
+- **Communication** — chatbot artifacts, knowledge-cutoff disclaimers,
+  sycophancy, placeholder and template text
 - **Filler and hedging** — filler phrases, excessive hedging, generic positive
   conclusions, signposting and announcements
+- **Drafting scaffolding left in** — objections nobody raised, rejected fake
+  alternatives, documentation narrating the previous version
 
-The catalog also has a short "No longer reliable tells" section — patterns that
-have aged out as models changed.
+The catalog ends with three calibration sections: "What not to flag" (the
+false-positive checklist), "Human details to keep", and "No longer reliable
+tells" — patterns that have aged out as models changed.
 
 ## Installation
 
@@ -85,6 +91,19 @@ tells age out. Re-check the catalog against the source roughly every 3–6 month
 
 ## Version history
 
+- **2.0.0** — Re-checked against the current Wikipedia source and upstream
+  humanizer 2.11.0. Added stiff synonyms for plain verbs, formulaic sayings,
+  document skeleton tells, unnecessary tables, placeholder and template text,
+  and a new "Drafting scaffolding left in" group (unraised objections, fake
+  alternatives, narrating the previous version); folded repeated sentence
+  openings into synonym cycling and "X rather than Y" into negative parallelism;
+  expanded markup artifacts into a per-vendor table (Gemini, Grok, DeepSeek,
+  Perplexity). **Recalibrated three patterns that had come to push the wrong
+  way:** filler phrases and hedging — the source now lists isolated wordy
+  constructions and hedges as signs of *human* writing — and em dashes, which a
+  July 2026 study found current models mostly use *less* than professional
+  writers. Added "What not to flag" and "Human details to keep". Fixed the curly
+  quotes example, whose before/after halves were identical.
 - **1.2.0** — Added passive/subjectless fragments, persuasive-authority tropes,
   hyphen-pair consistency (reframed: no blanket de-hyphenation), AI markup &
   citation artifacts, fragmented headers, and signposting; folded tailing
