@@ -11,6 +11,7 @@ Agent skills published by [Heirloom Logic LLC](https://heirloomlogic.com) for Cl
 | [`robosplainer`](robosplainer/SKILL.md) | Explains a pull request as a two-minute read: two sentences of setup, then code blocks with one line of explanation each. Archives each report under `~/.robosplainer/<repo>/`. | — |
 | [`swidux-ref`](swidux-ref/SKILL.md) | Architecture rules and copy-pasteable code templates for [Swidux](https://github.com/heirloomlogic/Swidux), a Redux-style state-management library for SwiftUI. | [heirloomlogic/Swidux](https://github.com/heirloomlogic/Swidux) |
 | [`tightlip-ref`](tightlip-ref/SKILL.md) | Setup and code patterns for [Tightlip](https://github.com/heirloomlogic/Tightlip), a SwiftPM build-tool plugin that generates a `Secrets` enum from environment variables at build time. | [heirloomlogic/Tightlip](https://github.com/heirloomlogic/Tightlip) |
+| [`tightwad`](tightwad/SKILL.md) | Audits one repo's GitHub Actions workflows, measures what CI costs in billed minutes from real job durations, tightens it, brings actions current and pinned, hardens permissions, and opens a PR that leads with the number. | — |
 
 ## Install
 
@@ -23,6 +24,7 @@ gh skill install heirloomlogic/skills persnicket-ref --agent claude-code --force
 gh skill install heirloomlogic/skills robosplainer --agent claude-code --force --scope user --upstream
 gh skill install heirloomlogic/skills swidux-ref --agent claude-code --force --scope user --upstream
 gh skill install heirloomlogic/skills tightlip-ref --agent claude-code --force --scope user --upstream
+gh skill install heirloomlogic/skills tightwad --agent claude-code --force --scope user --upstream
 ```
 
 For more options please see the [gh skill install](https://cli.github.com/manual/gh_skill_install) documentation.
