@@ -171,6 +171,94 @@ Then interrogate what is left, because at 10x each question is worth real money:
 - **Does this need `push: [main]` at all?** Only if that run does something the
   PR run does not.
 
+### 2a. The same repo under ramen mode
+
+`/tightwad ramen` stops asking those questions and parks the answer. The skeleton
+above becomes two files, because `workflow_dispatch` is a workflow-level trigger
+and cannot gate one job. Method and caveats: `ramen.md`.
+
+`.github/workflows/ci.yml` — everything that runs at 1x, on every PR:
+
+```yaml
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04-arm
+    container: swift:6.3.3-noble
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Lint (strict)
+        run: swift-format lint --strict --parallel --recursive --configuration .swift-format Sources Tests
+
+      # Promoted rather than parked: these suites import nothing Apple-only, so
+      # they run at 1x. Only the SwiftUI-dependent suites went to paid-runners.yml.
+      - name: Test (Linux-capable suites)
+        run: swift test --filter 'ModelTests|ParserTests'
+```
+
+`.github/workflows/paid-runners.yml` — everything above 1x, on no trigger:
+
+```yaml
+# Jobs that bill above 1x. Parked here by tightwad ramen mode: nothing in this
+# file runs on a trigger, so it costs zero billed minutes until someone runs it
+# by hand from the Actions tab.
+#
+# TO UN-PARK: replace the `on:` block below with `pull_request:` and delete this
+# comment. Measured at 70 billed minutes per merged PR — see the PR that created
+# this file.
+name: Paid runners
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The only job that genuinely needs the platform: the package imports SwiftUI.
+  test-macos:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test
+        run: swift test
+```
+
+Three things that skeleton is doing deliberately:
+
+- **The `push: [main]` trigger is gone**, because nothing left needs it. Under
+  ramen the Linux jobs are cheap enough that a merge-time tier buys little, and the
+  expensive tier it used to protect is parked.
+- **`timeout-minutes` survives into the parked file**, and matters more there. A
+  manual run is unsupervised by definition.
+- **The macOS job keeps its comment verbatim.** Ramen parks rather than deletes,
+  which is how it satisfies the `exceptions.md` preserve rule without asking.
+
+Archetypes 1, 3 and 4 are already all-1x, so ramen mode parks nothing in them.
+Say that and run the ordinary flow.
+
 ## 3. Node / TypeScript
 
 Already 1x, so this is about job count and duplication rather than runners.

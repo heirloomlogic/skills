@@ -7,14 +7,16 @@ description: >-
   Actions minutes", "audit my workflows", "pin my actions", "harden my CI",
   "our macOS runners are killing us", "keep my actions up to date", "set up
   dependabot for actions", "my action pins are stale", or a bare `/tightwad`.
-  Works on one repo per invocation and opens a pull request. NOT for authoring a
-  repo's first workflow from scratch, self-hosted runner capacity planning,
-  repository settings such as branch protection or CODEOWNERS, or application
-  build performance.
+  Also triggers on "I can't afford macOS runners", "turn off the mac runners",
+  "make CI Linux only", "we're broke", or `/tightwad ramen`, which parks every
+  runner above 1x. Works on one repo per invocation and opens a pull request.
+  NOT for authoring a repo's first workflow from scratch, self-hosted runner
+  capacity planning, repository settings such as branch protection or CODEOWNERS,
+  or application build performance.
 disable-model-invocation: true
-argument-hint: "audit | <nothing to audit and fix>"
+argument-hint: "audit | ramen | ramen audit | <nothing to audit and fix>"
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
 allowed-tools:
   - Read
   - Write
@@ -43,6 +45,11 @@ proof.
 - **`/tightwad`** — measure, rewrite, open a PR.
 - **`/tightwad audit`** — measure and report. Change nothing, write nothing, open
   nothing.
+- **`/tightwad ramen`** — the same rewrite, plus: on a private repo, **no job
+  above 1x runs on a trigger.** Every macOS and Windows job moves to a
+  manual-only workflow. See rule 4 and `references/ramen.md`.
+- **`/tightwad ramen audit`** — report what ramen would park and what it would
+  save. Write nothing.
 
 ## The one idea
 
@@ -154,7 +161,7 @@ minute eats ten Linux minutes of your quota.
 - **Linux-capable and private** → `ubuntu-24.04-arm` with a pinned container
   image. ARM bills at the same 1x as x64 and is measurably faster on Swift.
 - **Locked to macOS and private** → it stays, and every remaining job justifies
-  its 10x in a comment.
+  its 10x in a comment. **Ramen mode overrides this line** — see below.
 - **Public** → whatever is fastest. Cost is zero.
 
 **Lint almost never needs macOS.** `swift-format` ships in the Swift Linux
@@ -167,6 +174,34 @@ argument holds for any lint, format or link-check job in any language.
 Check it rather than assuming: if the lint step shells out to `xcrun`, it is
 reaching for the macOS toolchain and needs the invocation changed, not just the
 runner.
+
+#### Ramen mode overrides this rule
+
+Rule 4 prices a macOS runner and asks whether it earns its 10x. That question
+assumes the account can pay when the answer is yes. **`/tightwad ramen` is the
+standing answer that it cannot.**
+
+In ramen mode, on a **private** repo, "locked to macOS and private → it stays"
+does not apply. No job above 1x runs on a trigger — not macOS at 10x, not Windows
+at 2x. Those jobs are not deleted and not argued with: they move verbatim, comments
+and all, into `.github/workflows/paid-runners.yml`, whose only trigger is
+`workflow_dispatch`. They cost zero until a human clicks Run workflow.
+
+Two guarantees hold it together:
+
+- **Promote before you park.** Any part of a suite that runs on Linux stays on
+  Linux. Parking work that could have run at 1x is a failure of the mode.
+- **A PR never ends with zero checks.** If parking empties the PR workflow, build
+  the Linux lint job. A macOS-locked Swift package can always lint on Linux.
+
+Ramen changes rule 4 and nothing else. Rules 1–3 and 5–9 run unchanged on whatever
+remains. **On a public repo it changes no runner at all** — Actions are free, so
+there is nothing to save.
+
+This is the largest coverage cut this skill can make. Rule 3 moves a check to
+merge-time; ramen moves one to never. Full method, the split procedure, the
+required-status-check deadlock it can cause, and the three un-park prices the PR
+must carry: `references/ramen.md`.
 
 ### 5. A `timeout-minutes` on every job
 
@@ -313,10 +348,20 @@ repo — but label it an estimate, in the PR, every time.
 **In `audit` mode, stop here.** Report the baseline, the findings and what each
 one would save. Write nothing.
 
+**In `ramen audit` mode, stop here too** — and report the five things
+`references/ramen.md` lists, including the required-status-check status and the
+three un-park prices.
+
 ### Phase 3 — Rewrite the skeleton
 
 Apply the nine rules. Write the new workflow files, and `.github/dependabot.yml`
 alongside them.
+
+**In ramen mode, split the files first.** Promote what runs on Linux, move every
+remaining macOS and Windows job into `paid-runners.yml`, and check the required
+status checks before you write anything (`references/ramen.md`). Then apply rules
+1–3 to the Linux jobs that are left, because the arithmetic changed underneath
+them.
 
 Do the **currency pass before the rewrite**, not after: resolve every action's
 latest stable release and its SHA first (`references/hardening.md`), so the
@@ -359,15 +404,20 @@ The PR body carries, in this order:
 3. **What moved later** — every check that went from PR-time to merge-time or
    nightly, and what now surfaces after the merge instead of before it. Never
    bury this.
-4. **Currency and hardening, under their own heading.** Never folded into the
+4. **What was parked** (ramen mode only, under its own heading) — every job now in
+   `paid-runners.yml`, the coverage that went with it, the three un-park prices,
+   the required-status-check finding, and the note that the Run workflow button
+   does not exist until this PR merges. The coverage sentence also belongs in the
+   PR's first paragraph; this heading is the detail, not the disclosure.
+5. **Currency and hardening, under their own heading.** Never folded into the
    minutes table — cost is measured, safety is categorical, and blending them
    makes both unreadable. Name every major version crossed, and say the release
    notes were read. A reviewer needs to tell "bumped a patch" from "crossed three
    majors and believed the changelog." Rule 9's *choices* go here — the interval
    and why, the grouping, which ecosystems were added, and that auto-merge and
    `cooldown:` were named and left off.
-5. **What was preserved and why** — the commented exceptions you carried forward.
-6. **Whether the numbers are measured or estimated**, and from which runs.
+6. **What was preserved and why** — the commented exceptions you carried forward.
+7. **Whether the numbers are measured or estimated**, and from which runs.
 
 Then report the PR URL and the one-line saving to the user.
 
@@ -409,6 +459,10 @@ skill's own mistakes to land somewhere harmless.
   removing what it protects.
 - **Name what you moved later.** Cutting PR-time coverage is a real trade, not a
   pure saving. A PR that reports only the minutes saved is lying by omission.
+- **Parked is not deleted, and parked is not free of consequence.** Ramen mode
+  keeps every job and its comments, so the decision stays reversible — but the
+  coverage is gone until someone clicks. Carry the price of un-parking in the PR
+  so the user knows when they can afford it back.
 - **Never touch `main` directly.** CI cannot be verified locally; the run on your
   PR is the proof. Open the PR and let it run.
 - **Do not reduce the merge gate silently.** If after your change a PR no longer
@@ -423,6 +477,11 @@ skill's own mistakes to land somewhere harmless.
 - `references/archetypes.md` — the four repo shapes with complete workflow
   skeletons, the `dependabot.yml` every shape gets, and the test for whether a
   package is really locked to macOS. Read this in Phases 1 and 3.
+- `references/ramen.md` — ramen mode in full: what it overrides, the
+  promote-before-park pass, how to split a mixed workflow, the `paid-runners.yml`
+  template, the required-status-check deadlock and how to check for it, the three
+  un-park prices, and the audit variant. Read this in Phase 3 whenever the mode is
+  `ramen`.
 - `references/exceptions.md` — load-bearing versus cruft, the preserve rule, and
   how to put a conflict to the user. Read this in Phases 3 and 4, before deleting
   anything.

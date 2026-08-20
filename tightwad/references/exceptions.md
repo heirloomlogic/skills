@@ -88,6 +88,23 @@ Three things make that a good question:
 **Do not batch conflicts into one question with a combined price.** Each is a
 separate call and the user may answer them differently.
 
+## Ramen mode raises no conflict
+
+`/tightwad ramen` **parks rather than deletes**, so the preserve rule is satisfied
+by the move itself. Every parked job keeps its comment, verbatim and in position,
+inside `paid-runners.yml`. Nothing is lost, so nothing needs asking.
+
+That also means ramen mode does not stop to price each macOS job. The mode **is**
+the user's decision, already made, and re-asking it one job at a time would be
+asking them to make it again. Park the set and report it.
+
+One rule below survives ramen mode intact but changes shape: **"the last check
+standing"** is normally an ask. Under ramen it is a report — the user has already
+authorised the cut, so the job is to state plainly, in the PR's first paragraph,
+which coverage is now gone and what returning it would cost. `ramen.md` carries
+the two guarantees that keep this survivable, chiefly that a PR never ends with
+zero checks.
+
 ## Version bumps go through the same gate
 
 A major version bump is not a formatting change, so it gets the same treatment as
