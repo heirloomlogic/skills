@@ -30,7 +30,7 @@ minutes; the macOS 10x multiplier makes it 150. The workflow triggered on both
 `pull_request` and `push: [main]`, so a merged PR ran it twice: **300 billed
 minutes per merged PR.** Thirteen merged PRs exhaust a month. It merged 87.
 
-## The eight rules
+## The nine rules
 
 1. One trigger per commit
 2. Cancel superseded runs (`concurrency` + `cancel-in-progress`)
@@ -41,6 +41,7 @@ minutes per merged PR.** Thirteen merged PRs exhaust a month. It merged 87.
 7. Actions current *and* pinned to a SHA
 8. Harden by default — `permissions:`, `persist-credentials: false`, no untrusted
    input in `run:`
+9. Keep them current without you — a priced, grouped Dependabot config
 
 Two are worth pulling out.
 
@@ -66,6 +67,25 @@ the most valuable lines in their file. Where the skeleton disagrees with a
 comment, the skill **asks** — quoting the reason and pricing the choice in billed
 minutes — rather than deleting.
 
+## Rule 7 creates the debt, so rule 9 pays it
+
+Rule 7 pins every action to an exact 40-character SHA. Nobody bumps those by hand,
+so without a bot the currency pass is the last one the repo ever gets — and rule
+7's own argument, that a pinned SHA on an end-of-life runtime is a reproducible way
+to run unpatched code, becomes a description of what the skill just built.
+
+So every run writes `.github/dependabot.yml`. **It is the only rule that spends
+money rather than saving it**, which is exactly why this skill should be the one to
+configure it: every Dependabot pull request triggers CI, and a daily ungrouped
+updater on a macOS repo can outspend everything rules 1–6 saved. The interval is
+priced against the measured per-run cost — weekly by default, monthly when four
+PRs a month would exceed 10% of the account quota — and the updates are grouped so
+N action bumps open one pull request instead of N.
+
+The repo's own ecosystem (`npm`, `swift`, `cargo`) is offered as a separate priced
+question, never added silently. Auto-merge and `cooldown:` get named in the PR and
+left off, the same call the skill already makes about `harden-runner`.
+
 ## Two rules that keep it honest rather than merely cheap
 
 - **Never touch `main` directly.** CI cannot be verified locally; the run on its
@@ -89,17 +109,18 @@ repo's workflows are readable by everyone looking for a way in, and its
 
 ## Files
 
-- [`SKILL.md`](SKILL.md) — the flow, the eight rules, the two modes, the PR format
+- [`SKILL.md`](SKILL.md) — the flow, the nine rules, the two modes, the PR format
 - [`references/cost-model.md`](references/cost-model.md) — multipliers, the
   account-wide quota, how to pull real durations, the formula, the public-repo
   short-circuit
 - [`references/archetypes.md`](references/archetypes.md) — four repo shapes with
-  complete workflow skeletons, and the test for whether a package is really locked
-  to macOS
+  complete workflow skeletons, the `dependabot.yml` every shape gets, and the test
+  for whether a package is really locked to macOS
 - [`references/exceptions.md`](references/exceptions.md) — load-bearing vs cruft,
   and how to put a conflict to the user
-- [`references/hardening.md`](references/hardening.md) — rules 7 and 8 in full,
-  including a one-liner that measures a repo's action drift
+- [`references/hardening.md`](references/hardening.md) — rules 7, 8 and 9 in full,
+  including a one-liner that measures a repo's action drift and how to price the
+  Dependabot interval
 
 ## Installation
 
@@ -125,7 +146,15 @@ cp -r tightwad/ ~/.claude/skills/tightwad/
   package between Darwin and swift-corelibs Foundation can move dates, formatting
   and floating-point results. The skill requires a corpus diff before proposing
   that move, and will not do the diff for you.
+- **Rule 9 inherits Dependabot's own bugs.** A SHA pin can be bumped to an
+  untagged branch HEAD, which leaves the version comment stale and pointing at a
+  release the SHA is not
+  ([dependabot-core#13466](https://github.com/dependabot/dependabot-core/issues/13466),
+  [#14716](https://github.com/dependabot/dependabot-core/issues/14716)). The next
+  run of this skill catches it; nothing catches it in between.
 
 ## Version history
 
+- **1.1.0** — Dependabot brought in scope as rule 9. Previously the skill
+  contradicted itself and adopted it or declined it at random.
 - **1.0.0** — Initial public release.

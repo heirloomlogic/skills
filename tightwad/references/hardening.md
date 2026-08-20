@@ -1,11 +1,16 @@
 # Currency and hardening
 
-The cost rules make CI cheaper. These make it safe. Both are **on by default**,
-for the same practical reason: you already have the file open. Applying hardening
-later means opening every workflow a second time.
+Rules 1–6 make CI cheaper. Rules 7 and 8 make it safe. **Rule 9 is the only rule
+that spends money** — it buys rule 7 a future, because a pinned SHA nobody
+maintains is a snapshot of a decision somebody stopped making.
 
-Keep the two kinds of claim apart when you report. **Cost is measured; hardening
-is categorical.** Do not blend them into one number.
+All three parts are **on by default**, for the same practical reason: you already
+have the file open. Applying them later means opening every workflow a second
+time.
+
+Keep the kinds of claim apart when you report. **Cost is measured; hardening is
+categorical.** Do not blend them into one number. Rule 9's recurring cost is
+measured, so it goes in the minutes table with the rest of the money.
 
 ---
 
@@ -198,15 +203,166 @@ repo. List them explicitly in the PR — an action outside `actions/` and outsid
   secrets; do not add it.
 - **Required status checks, branch protection, CODEOWNERS.** Repo settings rather
   than workflow content. Out of scope; say so if they are obviously missing.
-- **Dependency scanning and Dependabot.** Worth having, not this skill's job.
-  Worth one line in the PR, though: a repo that adopts rule 7 gets SHA pins that a
-  human will not keep current by hand.
+- **Dependabot's security-alert and code-scanning features.** Vulnerability
+  scanning of the repo's application code is a different job. Rule 9 configures
+  Dependabot's *version updates* only, because those are what keep rule 7's pins
+  alive and those are what cost billed minutes.
 
-## Reporting hardening
+---
 
-A separate section of the PR body, under its own heading, never mixed into the
-minutes table. Two lines per finding: what was open, what it is now.
+# Part 3 — Keeping them current without you
+
+Rule 7 pins every action to an exact SHA. That is a snapshot, and snapshots rot.
+Nobody hand-bumps a 40-character hash, so without a bot the currency pass you just
+did is the last one this repo ever gets — and rule 7's own argument, that a pinned
+SHA on an end-of-life runtime is a reproducible way to run unpatched code, becomes
+a description of what you just built.
+
+**The skill creates the debt, so the skill ships the payer.** Every write-mode run
+writes or amends `.github/dependabot.yml`.
+
+## The default config
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    # "/" is the only value this ecosystem accepts. It already covers
+    # .github/workflows, reusable workflows, and composite actions under
+    # .github/actions — a local composite needs no second entry.
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # One PR per batch, not one per action. At 150 billed minutes a run,
+    # ungrouped bumps are the most expensive way to stay current.
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+```
+
+Replace the figure in that comment with the repo's own measured per-run cost from
+Phase 2. A comment carrying a real number is load-bearing for the next run of this
+skill; a comment carrying this page's number is furniture.
+
+## Price the interval, do not pick it by taste
+
+Every Dependabot pull request triggers CI, so the updater has a monthly bill. Reuse
+the Phase 2 measured figure:
+
+```
+dependabot_minutes_per_month = PRs_per_month × billed_minutes_per_PR_run
+```
+
+Default to `weekly`, which is roughly four PRs a month. **If that exceeds 10% of
+the account's monthly quota, step down to `monthly`** and write the reason into the
+file.
+
+Worked, on the macOS-locked private repo from `cost-model.md`: 150 billed minutes a
+run × 4 = 600 minutes a month against a 2,000-minute quota, which is 30% of
+everything the account has. Monthly instead is 150 minutes, or 7.5%. That repo gets
+`monthly`.
+
+`interval` also accepts `daily`, `quarterly`, `semiannually`, `yearly` and a `cron`
+expression. **`daily` is nearly always the wrong answer** on a private repo, and
+finding it in an existing config is a finding worth pricing.
+
+**Public repos get `weekly` always.** Actions are free, so the interval is a
+latency choice rather than a money one.
+
+## The pin comment must end with the version
+
+Dependabot updates the SHA *and* the trailing version comment — but only when the
+version is the last thing in that comment. Anything after it and Dependabot leaves
+the line alone, because it cannot tell a version tag from prose.
+
+```yaml
+# Correct — Dependabot maintains both halves of this line.
+- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+# Broken — the SHA still gets bumped, the comment silently does not, and the
+# file starts lying about which version it runs.
+- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, pinned for the fetch-depth fix
+```
+
+This collides with the "a comment is a reason" rule, and the resolution is
+positional: **the reason goes on its own line above the `uses:`, the version ends
+the trailing comment.** `exceptions.md` carries the same instruction where that
+rule lives.
+
+## Offer the repo's own ecosystem, never assume it
+
+The `github-actions` entry is not negotiable — rule 7 created that debt. The repo's
+own package ecosystem (`npm`, `swift`, `cargo`, `pip`, `bundler`) is a separate
+question, because those pull requests run the full test suite rather than a
+workflow re-parse, and they are where the real minutes are.
+
+Put it to the user with `AskUserQuestion`, priced, exactly like a load-bearing
+comment:
+
+> `Package.swift` declares 6 dependencies. A grouped weekly SwiftPM updater would
+> open roughly 2 PRs a month at **150 billed minutes each** — 300 minutes a month
+> against a 2,000-minute quota.
+> Add it weekly / add it monthly / actions only?
+
+One question, one ecosystem. Do not batch several ecosystems into one price.
+
+## Two things to mention and not do
+
+- **Auto-merge.** Grouped patch bumps merging themselves after green CI is the
+  thing that actually keeps pins current without human toil. It also means a
+  compromised upstream release merges itself. Same precedent as
+  `step-security/harden-runner` above: name it once in the PR, let the user decide,
+  do not enable it.
+- **`cooldown:`.** Its `default-days` sub-key delays adoption of a brand-new
+  release, which blunts the window where a compromised version is published and
+  later yanked. Real hedge, real latency. Offer it in the PR body — but **do not
+  write it into the file commented out**, because `exceptions.md` classes
+  commented-out configuration as cruft and the next run of this skill will delete
+  it.
+
+## An existing dependabot.yml is amended, never rewritten
+
+It is a config file with comments, so the `exceptions.md` preserve rule governs it
+in full. An `ignore:` entry or a `groups:` block carrying an explanation is
+load-bearing and survives verbatim.
+
+- **No file** → write the default above. This is an addition; no need to ask.
+- **File exists, no `github-actions` entry** → add that one entry. Leave every
+  other entry alone, including its schedule.
+- **File exists with a `github-actions` entry** → change only what is priced.
+  `daily` → `weekly` or `monthly`, and add a `groups:` block if there is none. An
+  uncommented `open-pull-requests-limit` is fair game; a commented one is not.
+
+## In audit mode
+
+Report, price, write nothing. The four findings:
+
+1. No `.github/dependabot.yml` — rule 7's pins have no maintainer.
+2. A file with no `github-actions` entry.
+3. `interval: daily` on a private repo.
+4. No `groups:` block, so N action bumps open N pull requests.
+
+Each one gets its cost or its saving in billed minutes a month, from the measured
+per-run figure.
+
+---
+
+# Reporting all three parts
+
+Currency and hardening get **a separate section of the PR body, under their own
+heading, never mixed into the minutes table.** Two lines per finding: what was
+open, what it is now.
 
 Where a bump crosses a major, say which majors were crossed and that the release
 notes were read. A reviewer needs to know the difference between "bumped a patch"
 and "crossed three majors and believed the changelog."
+
+**Rule 9 splits across both.** Its recurring cost is a measured number, so it goes
+in the minutes table as a line item — an addition, not a saving. Its *choices* go
+under the hardening heading: the interval and the arithmetic behind it, the
+grouping, which ecosystems the user accepted, and that auto-merge and `cooldown:`
+were named and left off.

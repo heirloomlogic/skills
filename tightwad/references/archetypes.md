@@ -249,6 +249,49 @@ it.
 
 ---
 
+## The fifth file: `.github/dependabot.yml`
+
+Every archetype gets this one, whatever its shape, because every archetype gets
+rule 7's SHA pins and nobody bumps those by hand.
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    # "/" is the only value this ecosystem accepts. It already covers
+    # .github/workflows, reusable workflows, and composite actions under
+    # .github/actions — the ./.github/actions/node-setup composite in
+    # archetype 3 needs no entry of its own.
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # One PR per batch, not one per action.
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+```
+
+Two things to change before shipping it:
+
+- **The interval is priced, not copied.** Default `weekly`; step down to `monthly`
+  when four PRs a month exceeds 10% of the account quota. Archetype 2 usually
+  lands on `monthly` — at 10x, four extra runs a month is real money.
+- **The `groups:` comment should carry the repo's own measured per-run cost**, so
+  the next reader can re-derive the interval without re-measuring.
+
+The repo's own ecosystem — `npm` for archetype 3, `swift` for 1 and 2 — is a
+second entry and a separate priced question for the user. It is never added
+silently. `hardening.md` Part 3 has the question to ask.
+
+Archetype 4 gets the file too. It has no build, so its updater is nearly free, and
+it is the shape most likely to be forgotten.
+
+---
+
 ## Getting the SHAs
 
 Never invent one, and never carry one forward from these pages without checking.
@@ -266,8 +309,12 @@ and a bot can bump it:
 uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 ```
 
-Two rules that follow:
+Three rules that follow:
 
+- **The version ends the comment.** Dependabot maintains that trailing version only
+  when nothing follows it. Append a reason and the SHA still gets bumped while the
+  comment silently does not, which leaves the file lying about which version it
+  runs. Reasons go on their own line above the `uses:`.
 - **One version of an action per repo.** If two workflows pin different SHAs for
   the same action, converge them on the latest rather than preserving the split.
   A repo that disagrees with itself is a repo where nobody is watching.
