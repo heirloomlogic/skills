@@ -21,6 +21,9 @@ whole security pass and none of the money argument.
 Do not move a public repo off macOS to save money. There is none to save, and you
 would be trading a real capability for an imaginary saving.
 
+**This short-circuit outranks ramen mode.** `/tightwad ramen` parks no runner on a
+public repo. Say so in one line and run the ordinary flow.
+
 **Private → keep reading.**
 
 ## The quota
@@ -137,6 +140,37 @@ Now apply the rules and re-derive:
 The first three are arithmetic and carry no platform risk. The fourth is the 10x,
 and it is the one that needs a spike first.
 
+## The same repo under ramen mode
+
+`/tightwad ramen` does not take that fourth step. It never claims the macOS suite
+runs on Linux, because that claim needs a corpus diff nobody has done. It parks the
+suite instead, which needs no proof at all — only an honest account of what the
+repo gave up (`ramen.md`).
+
+Same measurement, re-derived:
+
+- Rule 1, drop the duplicate `push` trigger: 300 → 150
+- Rule 4, lint to Linux: 150 → 141
+- Promote the suites that import nothing Apple-only — `ModelTests` and
+  `ParserTests`, ~2m on ARM at 1x: 141 → 143, then
+- Park the two macOS TZ legs (14 rounded minutes × 10): **143 → 3**
+
+**3 billed minutes per merged PR.** Note that the promotion step *added* two
+minutes before the parking removed 140. That ordering is the point: promote first,
+so the Linux tier catches what it can, then park what is genuinely left.
+
+The parked figure is the other half of the report:
+
+```
+parked: 140 billed minutes per run (2 macOS TZ legs)
+  if returned to `pull_request`:  140 per merged PR
+  if run weekly:                  560 per month — 28% of a 2,000 quota
+  if run monthly:                 140 per month — 7%
+```
+
+That repo cannot afford weekly, and saying so is more useful than the 3. **A
+monthly manual run is what it can afford**, and that is the sentence the user needs.
+
 ## Reporting the number
 
 The PR opens with the number and nothing else:
@@ -167,3 +201,9 @@ less, so put it in the table.
 line reads "one TZ leg moved to nightly: −70 min/PR, and a timezone-divergence
 regression now surfaces at the nightly run rather than on the PR." Both halves,
 every time.
+
+**Never fold a parked cost into the saving.** In ramen mode the minutes table
+reports what CI now costs; the parked figure is a standing number describing
+coverage the repo no longer has. It gets its own heading, with the three un-park
+prices under it. Adding it to the saving would make a hole read as an
+optimisation.

@@ -102,20 +102,69 @@ skill says so and tunes only for speed. Rules 7 and 8 run regardless — a publi
 repo's workflows are readable by everyone looking for a way in, and its
 `github.event` input is genuinely attacker-controlled.
 
+## Ramen mode
+
+Rule 4 prices a macOS runner and asks whether it earns its 10x. That question
+assumes the account can pay when the answer is yes. **`/tightwad ramen` is the
+standing answer that it cannot.**
+
+On a private repo, no job above 1x runs on a trigger — not macOS at 10x, not
+Windows at 2x. The jobs are not deleted and not argued with. They move verbatim,
+comments and all, into `.github/workflows/paid-runners.yml`, whose only trigger is
+`workflow_dispatch`. They cost nothing until somebody clicks Run workflow, and one
+trigger edit brings them back when money arrives.
+
+The name follows "ramen profitable". You eat, you keep the roof, you do not pay
+10x for CI.
+
+Two guarantees hold it together:
+
+- **Promote before you park.** Any part of a suite that runs on Linux stays on
+  Linux — usually the business logic, which imports nothing Apple-only. Parking
+  work that could have run at 1x is a failure of the mode.
+- **A PR never ends with zero checks.** If parking empties the PR workflow, the
+  skill builds the Linux lint job. `swift-format` runs on Linux, so there is no
+  repo where this is impossible.
+
+**This is the largest coverage cut the skill can make**, and it says so in the PR's
+first paragraph. Rule 3 moves a check to merge-time; ramen moves one to never. So
+the PR carries three un-park prices — at `pull_request`, weekly, and monthly — and
+names the one the account can currently afford.
+
+Two footguns it checks for you:
+
+- **A parked job that is a required status check blocks every PR forever.** A job
+  skipped by a conditional reports `skipped`, which branch protection counts as a
+  pass. A workflow that never runs reports nothing at all, so its check sits
+  pending and merge stays blocked with nothing red to explain it. The skill reads
+  the required-checks list and reports what it finds. Branch protection is repo
+  settings, so it never edits.
+- **`workflow_dispatch` shows no Run workflow button until the file is on the
+  default branch.** The parked jobs are unreachable until the PR merges, and the
+  PR body says so.
+
+On a public repo ramen parks nothing. Actions are free, so there is nothing to
+save.
+
 ## Modes
 
 - `/tightwad` — measure, rewrite, open a PR.
 - `/tightwad audit` — measure and report. Changes nothing.
+- `/tightwad ramen` — the same rewrite, with every runner above 1x parked.
+- `/tightwad ramen audit` — report what ramen would park and what it would save.
 
 ## Files
 
-- [`SKILL.md`](SKILL.md) — the flow, the nine rules, the two modes, the PR format
+- [`SKILL.md`](SKILL.md) — the flow, the nine rules, the four modes, the PR format
 - [`references/cost-model.md`](references/cost-model.md) — multipliers, the
   account-wide quota, how to pull real durations, the formula, the public-repo
   short-circuit
 - [`references/archetypes.md`](references/archetypes.md) — four repo shapes with
   complete workflow skeletons, the `dependabot.yml` every shape gets, and the test
   for whether a package is really locked to macOS
+- [`references/ramen.md`](references/ramen.md) — ramen mode in full: the
+  promote-before-park pass, how to split a mixed workflow, the `paid-runners.yml`
+  template, the required-status-check deadlock, and the three un-park prices
 - [`references/exceptions.md`](references/exceptions.md) — load-bearing vs cruft,
   and how to put a conflict to the user
 - [`references/hardening.md`](references/hardening.md) — rules 7, 8 and 9 in full,
@@ -146,6 +195,10 @@ cp -r tightwad/ ~/.claude/skills/tightwad/
   package between Darwin and swift-corelibs Foundation can move dates, formatting
   and floating-point results. The skill requires a corpus diff before proposing
   that move, and will not do the diff for you.
+- **Nothing makes anyone click the parked workflow.** Ramen mode makes the parked
+  jobs cheap to keep and easy to forget, and a suite nobody has run in four months
+  is a suite that no longer passes. The skill prices a monthly run and names it in
+  the PR; nothing enforces it.
 - **Rule 9 inherits Dependabot's own bugs.** A SHA pin can be bumped to an
   untagged branch HEAD, which leaves the version comment stale and pointing at a
   release the SHA is not
@@ -155,6 +208,8 @@ cp -r tightwad/ ~/.claude/skills/tightwad/
 
 ## Version history
 
+- **1.2.0** — `ramen` mode. Parks every runner above 1x on a private repo, rather
+  than pricing it and asking.
 - **1.1.0** — Dependabot brought in scope as rule 9. Previously the skill
   contradicted itself and adopted it or declined it at random.
 - **1.0.0** — Initial public release.
