@@ -5,15 +5,16 @@ description: >-
   account's Actions quota keeps running out, or workflows are stale, unpinned or
   over-permissioned. Triggers on "why is CI so expensive", "we blew through our
   Actions minutes", "audit my workflows", "pin my actions", "harden my CI",
-  "our macOS runners are killing us", or a bare `/tightwad`. Works on one repo
-  per invocation and opens a pull request. NOT for authoring a repo's first
-  workflow from scratch, self-hosted runner capacity planning, repository
-  settings such as branch protection or CODEOWNERS, or application build
-  performance.
+  "our macOS runners are killing us", "keep my actions up to date", "set up
+  dependabot for actions", "my action pins are stale", or a bare `/tightwad`.
+  Works on one repo per invocation and opens a pull request. NOT for authoring a
+  repo's first workflow from scratch, self-hosted runner capacity planning,
+  repository settings such as branch protection or CODEOWNERS, or application
+  build performance.
 disable-model-invocation: true
 argument-hint: "audit | <nothing to audit and fix>"
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
 allowed-tools:
   - Read
   - Write
@@ -74,6 +75,10 @@ are readable by everyone looking for a way in, and `github.event` input on a
 public repo is genuinely attacker-controlled. A public repo gets the full
 security pass and none of the cost argument.
 
+**Rule 9 applies either way, but visibility sets its interval.** A public repo gets
+`weekly` without arithmetic, because its Dependabot pull requests are free. A
+private repo gets the interval its measured per-run cost justifies.
+
 **Private repos bill against a shared monthly account quota** — 2,000 minutes on
 GitHub Free, 3,000 on Pro, for the whole account. This matters more than it
 sounds: one repo can exhaust the quota and block CI in every other private repo
@@ -90,11 +95,14 @@ the PR.
 
 ---
 
-## The eight rules
+## The nine rules
 
 Rules 1–6 are about money. Rules 7 and 8 are about safety, they are **on by
 default**, and they are not negotiable down to "just pin the SHAs" — a pinned SHA
 on an end-of-life runtime is a reproducible way to run unpatched code.
+
+Rule 9 is neither. It is the only rule that **spends** money, and it buys rule 7 a
+future.
 
 ### 1. One trigger per commit
 
@@ -188,6 +196,11 @@ that release's SHA with the version in a trailing comment:
 uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 ```
 
+**The version ends the comment.** Nothing after it — Dependabot maintains that
+trailing version only when it is the last thing on the line, so a reason appended
+there stops the comment updating and the file starts lying about which version it
+runs. Reasons go on their own line above the `uses:`. See rule 9.
+
 A pinned SHA answers "did this change under me". It says nothing about whether the
 action is still maintained. Stale actions are a live problem rather than a
 tidiness complaint: `actions/checkout@v4` runs on **`node20`, which reached end of
@@ -221,6 +234,39 @@ Every workflow, every run:
 
 Full baseline, the severity you should honestly claim for each, and what is
 deliberately excluded: `references/hardening.md`.
+
+### 9. Keep them current without you
+
+Rule 7 pins every action to an exact SHA. Nobody hand-bumps a 40-character hash, so
+without a bot the currency pass you just did is the last one this repo ever gets.
+**The skill creates the debt, so the skill ships the payer:** every write-mode run
+writes or amends `.github/dependabot.yml` with a `github-actions` entry.
+
+This is the one rule that costs rather than saves, because every Dependabot pull
+request triggers CI. So configure it like a tightwad rather than accepting the
+defaults:
+
+- **Group the updates.** One `groups:` block with `patterns: ["*"]` turns N action
+  bumps into one pull request instead of N.
+- **Price the interval.** `PRs_per_month × billed_minutes_per_PR_run`, from the
+  Phase 2 measurement. Default `weekly`; if that exceeds **10% of the account's
+  monthly quota**, step down to `monthly` and write the reason into the file.
+  `daily` on a private repo is nearly always wrong.
+- **`directory: "/"`** is the only value this ecosystem takes, and it already
+  covers `.github/workflows`, reusable workflows and composite actions under
+  `.github/actions`.
+
+**The repo's own package ecosystem is a separate, priced question.** `npm`,
+`swift`, `cargo` and friends open pull requests that run the full test suite, so
+they cost real minutes. Offer each one with `AskUserQuestion` in Phase 4. Never add
+one silently.
+
+**Mention auto-merge and `cooldown:`; enable neither.** Both are supply-chain
+decisions the user makes deliberately — the same call this skill already makes
+about `harden-runner`.
+
+Method, the config to write, and how to amend an existing file:
+`references/hardening.md`, Part 3.
 
 ---
 
@@ -269,7 +315,8 @@ one would save. Write nothing.
 
 ### Phase 3 — Rewrite the skeleton
 
-Apply the eight rules. Write the new workflow files.
+Apply the nine rules. Write the new workflow files, and `.github/dependabot.yml`
+alongside them.
 
 Do the **currency pass before the rewrite**, not after: resolve every action's
 latest stable release and its SHA first (`references/hardening.md`), so the
@@ -280,13 +327,18 @@ a conflict for Phase 4.
 Work through `references/exceptions.md` **before** you delete anything. The short
 version: a line carrying an explanatory comment is load-bearing until proven
 otherwise, and survives the rewrite verbatim, comment included. Uncommented cruft
-goes freely.
+goes freely. **An existing `dependabot.yml` is covered by that rule too** — amend
+it, never rewrite it.
 
 ### Phase 4 — Resolve the conflicts
 
 Where the skeleton wants to remove something that carries a comment, **do not**.
 Collect those conflicts and put them to the user with `AskUserQuestion`, one
 decision per conflict, with the cost of keeping it in billed minutes.
+
+Rule 9's ecosystem question goes here too, in the same shape and for the same
+reason: the `github-actions` entry is automatic, and every other ecosystem is a
+priced offer. One question per ecosystem.
 
 This is the only place the skill stops. It is worth stopping for: those comments
 record measured bugs and expensive lessons, and the cost of keeping one is usually
@@ -300,7 +352,10 @@ The PR body carries, in this order:
 
 1. **The number, first line.** `<before> → <after> billed minutes per merged PR`,
    and the same for a month at the repo's recent merge rate.
-2. **What changed, rule by rule** (1–6), each with its own saving.
+2. **What changed, rule by rule** (1–6), each with its own saving — then rule 9's
+   recurring cost as the last line of the same table, marked as an addition. It is
+   a measured number, so it belongs with the money, and a reader deserves the net
+   rather than the gross.
 3. **What moved later** — every check that went from PR-time to merge-time or
    nightly, and what now surfaces after the merge instead of before it. Never
    bury this.
@@ -308,7 +363,9 @@ The PR body carries, in this order:
    minutes table — cost is measured, safety is categorical, and blending them
    makes both unreadable. Name every major version crossed, and say the release
    notes were read. A reviewer needs to tell "bumped a patch" from "crossed three
-   majors and believed the changelog."
+   majors and believed the changelog." Rule 9's *choices* go here — the interval
+   and why, the grouping, which ecosystems were added, and that auto-merge and
+   `cooldown:` were named and left off.
 5. **What was preserved and why** — the commented exceptions you carried forward.
 6. **Whether the numbers are measured or estimated**, and from which runs.
 
@@ -340,6 +397,8 @@ skill's own mistakes to land somewhere harmless.
   about cost if the answer is public. The security pass runs regardless.
 - **Current and pinned, never one or the other.** A pinned SHA on an end-of-life
   Node runtime is a reproducible way to run unpatched code.
+- **A pin you do not maintain is a snapshot of a decision you stopped making.**
+  Rule 7 without rule 9 has a shelf life of about a quarter.
 - **Never bump a major blind.** Read the notes for every major you cross. A green
   build turned red is a worse outcome than the stale action you replaced.
 - **Claim the severity you can defend.** If the repo already defaults
@@ -362,13 +421,14 @@ skill's own mistakes to land somewhere harmless.
   pull real durations, the billed-minutes formula, and the public-repo
   short-circuit. Read this in Phase 2.
 - `references/archetypes.md` — the four repo shapes with complete workflow
-  skeletons, and the test for whether a package is really locked to macOS. Read
-  this in Phases 1 and 3.
+  skeletons, the `dependabot.yml` every shape gets, and the test for whether a
+  package is really locked to macOS. Read this in Phases 1 and 3.
 - `references/exceptions.md` — load-bearing versus cruft, the preserve rule, and
   how to put a conflict to the user. Read this in Phases 3 and 4, before deleting
   anything.
-- `references/hardening.md` — rules 7 and 8 in full: how to find an action's
+- `references/hardening.md` — rules 7, 8 and 9 in full: how to find an action's
   latest stable release and its SHA, how to read its Node runtime, why a major
   bump is a behaviour change, how to measure your own drift, the hardening
-  baseline, and what is deliberately left out. Read this in Phase 3, before you
-  write the skeleton.
+  baseline, what is deliberately left out, and (Part 3) the Dependabot config,
+  how to price its interval, and how to amend one that already exists. Read this
+  in Phase 3, before you write the skeleton.

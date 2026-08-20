@@ -15,6 +15,11 @@ That asymmetry does useful work in both directions. It protects knowledge that w
 expensive to acquire, and it puts quiet pressure on the repo: a step nobody
 explained is a step nobody defends.
 
+**`.github/dependabot.yml` is covered by this rule**, not just the workflows. A
+commented `ignore:` entry usually records an upgrade that broke something, and a
+commented `groups:` block usually records a batching decision somebody priced. Both
+survive verbatim. Amend that file; never rewrite it.
+
 ## Why this rule exists
 
 Two real examples, both of which a template would have deleted.
@@ -111,6 +116,9 @@ and you have swapped a stale action for a red build, which is the worse trade.
 - The rule 8 additions — a `permissions:` block, `persist-credentials: false` on a
   checkout that does not push. You are constraining, not removing, and both fail
   loudly rather than silently if you get them wrong.
+- **A `.github/dependabot.yml` where none exists** (rule 9). You are adding, like
+  `timeout-minutes`. Editing one that already exists is not covered by this and
+  goes through the preserve rule above.
 
 ## What you never remove, with or without a comment
 
@@ -142,3 +150,24 @@ the file:
 That comment is now load-bearing, and the next run of this skill will preserve it.
 That is the intended outcome: the skeleton gets applied once, and the reasons
 accumulate.
+
+## The one place a reason may not go
+
+A pinned `uses:` line is the exception, and it is a hard one. Dependabot maintains
+the trailing version comment only when the version is the last thing on the line,
+so appending a reason there breaks the automation that rule 9 just installed — the
+SHA keeps getting bumped, the comment does not, and the file starts lying about
+which version it runs.
+
+```yaml
+# Wrong. The reason is real; the position kills the update.
+- uses: actions/checkout@3d3c... # v7.0.1, pinned for the fetch-depth fix
+
+# Right. Same reason, still load-bearing, and the bot can still do its job.
+# Pinned for the fetch-depth fix — see #214.
+- uses: actions/checkout@3d3c... # v7.0.1
+```
+
+**The reason goes above the line; the version ends the trailing comment.** When you
+find the wrong shape in a repo, move the reason up rather than deleting it. That
+move preserves the comment, so it needs no conflict question.

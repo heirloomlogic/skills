@@ -144,10 +144,24 @@ The PR opens with the number and nothing else:
 ```
 300 → 71 billed minutes per merged PR (measured, run 30958306803)
 ~26,000 → ~6,200 minutes/month at last month's merge rate
+plus ~71 minutes/month for the monthly grouped actions updater (rule 9)
 ```
 
 Then the rule-by-rule breakdown. A saving nobody can check is a saving nobody
 believes, so cite the run ID you measured.
+
+**Report the net, not just the gross.** Rule 9 is the only rule that adds minutes,
+and its cost comes off the same measurement as the savings:
+
+```
+dependabot_minutes_per_month = PRs_per_month × billed_minutes_per_PR_run
+```
+
+Price it against the *post-rewrite* per-run figure, not the one you started with —
+the updater's pull requests run the workflows you just made cheaper. On the repo
+above that is one grouped PR a month at 71 minutes, against roughly 19,800 saved.
+A reader who finds that line for themselves after merging trusts the next number
+less, so put it in the table.
 
 **Report the trade in the same breath.** If one timezone leg moved to nightly, the
 line reads "one TZ leg moved to nightly: −70 min/PR, and a timezone-divergence
