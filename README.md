@@ -6,7 +6,7 @@ Agent skills published by [Heirloom Logic LLC](https://heirloomlogic.com) for Cl
 
 | Skill | What it does | Upstream |
 |---|---|---|
-| [`dehumanizer`](dehumanizer/SKILL.md) | Strips AI-writing tells (slop, ChatGPT-isms, em-dash closers, sycophancy) and rewrites prose in a concise, economical voice. | — |
+| [`dehumanizer`](dehumanizer/SKILL.md) | Strips AI-writing tells (slop, ChatGPT-isms, em-dash closers, teaser headings, sycophancy) and rewrites prose in a concise, economical voice. | — |
 | [`persnicket-ref`](persnicket-ref/SKILL.md) | Setup and CI wiring for [Persnicket](https://github.com/heirloomlogic/Persnicket), a lightweight `swift-format` wrapper for Swift packages. | [heirloomlogic/Persnicket](https://github.com/heirloomlogic/Persnicket) |
 | [`robosplainer`](robosplainer/SKILL.md) | Explains a pull request as a two-minute read: two sentences of setup, then code blocks with one line of explanation each. Archives each report under `~/.robosplainer/<repo>/`. | — |
 | [`swidux-ref`](swidux-ref/SKILL.md) | Architecture rules and copy-pasteable code templates for [Swidux](https://github.com/heirloomlogic/Swidux), a Redux-style state-management library for SwiftUI. | [heirloomlogic/Swidux](https://github.com/heirloomlogic/Swidux) |

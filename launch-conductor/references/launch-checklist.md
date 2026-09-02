@@ -1,27 +1,10 @@
 # Launch Checklist (generic, stack-agnostic)
 
-The path from a feature-complete iOS/macOS app to public App Store release —
-the last 10%. Use this when decomposing a workstream into a per-app note.
-Sections map to the canonical `phase` values; a phase is complete when all its
-items are checked, which is how `phase` is inferred during reconciliation.
+The path from a feature-complete iOS/macOS app to public App Store release — the last 10%. Use this when decomposing a workstream into a per-app note. Sections map to the canonical `phase` values; a phase is complete when all its items are checked, which is how `phase` is inferred during reconciliation.
 
-This is **stack-agnostic by design**. Items name a *capability*, not a vendor.
-Where an item says "paywall", the app might use RevenueCat, StoreKit 2, or
-nothing (free app — delete the item). Adapt wording to whatever the user
-actually uses; **delete inapplicable items** so `percent_to_release` stays
-honest. You track *whether* each capability is done and verifiable — never how
-to implement it.
+This is **stack-agnostic by design**. Items name a *capability*, not a vendor. Where an item says "paywall", the app might use RevenueCat, StoreKit 2, or nothing (free app — delete the item). Adapt wording to whatever the user actually uses; **delete inapplicable items** so `percent_to_release` stays honest. You track *whether* each capability is done and verifiable — never how to implement it.
 
-**Every item must be binary.** It is a single yes/no answerable by looking at
-the code or the running app — never "mostly", never "half". If an item could
-be honestly half-checked, it is two items; split it. The sub-bullet is the
-acceptance criterion that removes the judgment ("done" = exactly this is true).
-When you decompose into a note, fold enough of the criterion into the item text
-that the line is unambiguous on its own, because the dashboard shows the next 3
-item lines (not their sub-bullets) — a line the user can't adjudicate at a
-glance is the fire-ant wall this skill exists to prevent. Items not every app
-needs are marked *(if applicable)*; delete the ones the app doesn't use so the
-percentage stays honest.
+**Every item must be binary.** It is a single yes/no answerable by looking at the code or the running app — never "mostly", never "half". If an item could be honestly half-checked, it is two items; split it. The sub-bullet is the acceptance criterion that removes the judgment ("done" = exactly this is true). When you decompose into a note, fold enough of the criterion into the item text that the line is unambiguous on its own, because the dashboard shows the next 3 item lines (not their sub-bullets) — a line the user can't adjudicate at a glance is the fire-ant wall this skill exists to prevent. Items not every app needs are marked *(if applicable)*; delete the ones the app doesn't use so the percentage stays honest.
 
 ---
 
@@ -134,9 +117,7 @@ percentage stays honest.
 
 ## Optional non-app workstream (e.g. a marketing/teaser site)
 
-Only when the user actually has one. Phases: `building` → `staging` → `live`.
-It competes on the board; if it gates a submission (App Store Connect requires
-a live privacy-policy URL), that dependency can promote it above app work.
+Only when the user actually has one. Phases: `building` → `staging` → `live`. It competes on the board; if it gates a submission (App Store Connect requires a live privacy-policy URL), that dependency can promote it above app work.
 
 ### `building`
 - [ ] Site shell + content for each launching app
