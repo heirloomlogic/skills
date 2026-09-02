@@ -1,25 +1,16 @@
 # Dehumanizer
 
-A writing skill that removes signs of AI-generated writing without making the
-output sound like an encyclopedia entry or a sales pitch.
+A writing skill that removes signs of AI-generated writing without making the output sound like an encyclopedia entry or a sales pitch.
 
-Forked from [humanizer](https://github.com/blader/humanizer). Same detection
-foundation, different voice: deadpan, economical, recalibrated to flag overuse
-rather than carpet-bomb every dash and triple.
+Forked from [humanizer](https://github.com/blader/humanizer). Same detection foundation, different voice: deadpan, economical, recalibrated to flag overuse rather than carpet-bomb every dash and triple.
 
 ## What it is
 
-A reading-quality tool. Point it at AI-flavored prose — a README, changelog,
-doc, presentation, blog draft — and it rewrites the parts that read like a
-machine while keeping the meaning and matching the register of the input.
+A reading-quality tool. Point it at AI-flavored prose — a README, changelog, doc, presentation, blog draft — and it rewrites the parts that read like a machine while keeping the meaning and matching the register of the input.
 
 ## What it is NOT
 
-This is not a tool for hiding that AI wrote something, and not a way to beat AI
-detectors — the job is the writing, not the provenance. The same tics show up
-in plenty of human writing, and it fixes those too. If the text is clearer and
-less annoying afterward, the skill worked, regardless of who or what produced
-the draft.
+This is not a tool for hiding that AI wrote something, and not a way to beat AI detectors — the job is the writing, not the provenance. The same tics show up in plenty of human writing, and it fixes those too. If the text is clearer and less annoying afterward, the skill worked, regardless of who or what produced the draft.
 
 ## How it differs from the humanizer
 
@@ -32,30 +23,16 @@ the draft.
 
 ## Pattern groups
 
-The full catalog lives in [`references/patterns.md`](references/patterns.md),
-grouped by type. Read that file for examples — it is the source of truth, not
-this list:
+The full catalog lives in [`references/patterns.md`](references/patterns.md), grouped by type. Read that file for examples — it is the source of truth, not this list:
 
-- **Content** — significance inflation, notability name-dropping, fake -ing
-  analysis, promotional tone, vague attribution, formulaic "challenges" sections
-- **Language and grammar** — AI vocabulary, copula avoidance, negative
-  parallelism and tailing negation, rule of three, synonym cycling and repeated
-  openings, false ranges, passive/subjectless fragments, persuasive-authority
-  tropes, stiff synonyms for plain verbs, formulaic sayings
-- **Style** — em dashes (incl. the sales-pitch closer), boldface, inline-header
-  lists, title case, emojis, curly quotes, hyphen-pair consistency, document
-  skeleton, vendor markup and citation artifacts, fragmented headers,
-  unnecessary tables
-- **Communication** — chatbot artifacts, knowledge-cutoff disclaimers,
-  sycophancy, placeholder and template text
-- **Filler and hedging** — filler phrases, excessive hedging, generic positive
-  conclusions, signposting and announcements
-- **Drafting scaffolding left in** — objections nobody raised, rejected fake
-  alternatives, documentation narrating the previous version
+- **Content** — significance inflation, notability name-dropping, fake -ing analysis, promotional tone, vague attribution, formulaic "challenges" sections
+- **Language and grammar** — AI vocabulary, copula avoidance, negative parallelism and tailing negation, rule of three, synonym cycling and repeated openings, false ranges, passive/subjectless fragments, persuasive-authority tropes, stiff synonyms for plain verbs, formulaic sayings
+- **Style** — em dashes (incl. the sales-pitch closer), boldface, inline-header lists, title case, emojis, curly quotes, hyphen-pair consistency, document skeleton, vendor markup and citation artifacts, fragmented headers, teaser headings, unnecessary tables
+- **Communication** — chatbot artifacts, knowledge-cutoff disclaimers, sycophancy, placeholder and template text
+- **Filler and hedging** — filler phrases, excessive hedging, generic positive conclusions, signposting and announcements
+- **Drafting scaffolding left in** — objections nobody raised, rejected fake alternatives, documentation narrating the previous version
 
-The catalog ends with three calibration sections: "What not to flag" (the
-false-positive checklist), "Human details to keep", and "No longer reliable
-tells" — patterns that have aged out as models changed.
+The catalog ends with three calibration sections: "What not to flag" (the false-positive checklist), "Human details to keep", and "No longer reliable tells" — patterns that have aged out as models changed.
 
 ## Installation
 
@@ -67,52 +44,19 @@ cp -r dehumanizer/ .agent/skills/dehumanizer/
 
 ## Upgrading
 
-AI writing tells move. Models change their habits, new artifacts appear, and old
-tells age out. Re-check the catalog against the source roughly every 3–6 months:
+AI writing tells move. Models change their habits, new artifacts appear, and old tells age out. Re-check the catalog against the source roughly every 3–6 months:
 
-1. **Pull the source.** Read the current
-   [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing)
-   (maintained by WikiProject AI Cleanup). Optionally diff against the upstream
-   [humanizer](https://github.com/blader/humanizer) for newly added patterns.
-2. **Diff against `references/patterns.md`.** Note new categories, new flagged
-   phrases, and any tells the source now calls outdated.
-3. **Apply the recalibration philosophy.** This skill flags *overuse*, it
-   doesn't carpet-bomb. When importing a pattern, keep the "acceptable use"
-   half. Reject upstream fixes that trade an AI tell for bad grammar (e.g.
-   blanket-stripping hyphens). Generalize any voice guidance — no dated slang or
-   brand callouts as the point.
-4. **Insert into the right group and renumber.** Pattern numbers are reference
-   handles only; keep them sequential within their group and update the table of
-   contents. `SKILL.md` deliberately does not hardcode counts or numeric ranges,
-   so adding a pattern only touches `patterns.md`.
-5. **Record what aged out.** Move newly-unreliable tells to the "No longer
-   reliable tells" section rather than deleting them — the history is useful.
+1. **Pull the source.** Read the current [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) (maintained by WikiProject AI Cleanup). Optionally diff against the upstream [humanizer](https://github.com/blader/humanizer) for newly added patterns.
+2. **Diff against `references/patterns.md`.** Note new categories, new flagged phrases, and any tells the source now calls outdated.
+3. **Apply the recalibration philosophy.** This skill flags *overuse*, it doesn't carpet-bomb. When importing a pattern, keep the "acceptable use" half. Reject upstream fixes that trade an AI tell for bad grammar (e.g. blanket-stripping hyphens). Generalize any voice guidance — no dated slang or brand callouts as the point.
+4. **Insert into the right group and renumber.** Pattern numbers are reference handles only; keep them sequential within their group and update the table of contents. `SKILL.md` deliberately does not hardcode counts or numeric ranges, so adding a pattern only touches `patterns.md`.
+5. **Record what aged out.** Move newly-unreliable tells to the "No longer reliable tells" section rather than deleting them — the history is useful.
 6. **Bump the version** in `SKILL.md` and add a line to the history below.
 
 ## Version history
 
-- **2.0.0** — Re-checked against the current Wikipedia source and upstream
-  humanizer 2.11.0. Added stiff synonyms for plain verbs, formulaic sayings,
-  document skeleton tells, unnecessary tables, placeholder and template text,
-  and a new "Drafting scaffolding left in" group (unraised objections, fake
-  alternatives, narrating the previous version); folded repeated sentence
-  openings into synonym cycling and "X rather than Y" into negative parallelism;
-  expanded markup artifacts into a per-vendor table (Gemini, Grok, DeepSeek,
-  Perplexity). **Recalibrated three patterns that had come to push the wrong
-  way:** filler phrases and hedging — the source now lists isolated wordy
-  constructions and hedges as signs of *human* writing — and em dashes, which a
-  July 2026 study found current models mostly use *less* than professional
-  writers. Added "What not to flag" and "Human details to keep". Fixed the curly
-  quotes example, whose before/after halves were identical.
-- **1.2.0** — Added passive/subjectless fragments, persuasive-authority tropes,
-  hyphen-pair consistency (reframed: no blanket de-hyphenation), AI markup &
-  citation artifacts, fragmented headers, and signposting; folded tailing
-  negation into negative parallelism. Removed hardcoded pattern count and
-  numeric group ranges from `SKILL.md` (the source of the three-file drift).
-  Generalized the voice guidance away from dated, performative framing. Added a
-  scope note and this upgrading methodology. Added a "No longer reliable tells"
-  section.
-- **1.1.0** — Restructured: moved patterns to reference file, removed
-  generational labels, trimmed SKILL.md from 537 to 172 lines.
-- **1.0.0** — Initial release. Forked from humanizer 2.1.1 with voice
-  recalibration.
+- **2.1.0** — Added teaser headings (§27): headings that name a question and withhold the answer ("What was suspended, and why"), announce a defeated expectation ("— and it is not what Stage2.md assumes"), split a topic into itself and its negation, or open a section with an epigram. Covers markdown headings, PR and issue titles, commit subjects, and headline-shaped lines in status reports. Cross-referenced from persuasive-authority tropes and the em-dash closer, which are the same move in body position, and given a "what not to flag" entry so ordinary two-topic headings survive. Called out in `SKILL.md`'s voice section alongside the em-dash closer, and added as a step in the process checklist. Fixed a stale `SKILL.md` cross-reference that pointed the em-dash closer at §15.
+- **2.0.0** — Re-checked against the current Wikipedia source and upstream humanizer 2.11.0. Added stiff synonyms for plain verbs, formulaic sayings, document skeleton tells, unnecessary tables, placeholder and template text, and a new "Drafting scaffolding left in" group (unraised objections, fake alternatives, narrating the previous version); folded repeated sentence openings into synonym cycling and "X rather than Y" into negative parallelism; expanded markup artifacts into a per-vendor table (Gemini, Grok, DeepSeek, Perplexity). **Recalibrated three patterns that had come to push the wrong way:** filler phrases and hedging — the source now lists isolated wordy constructions and hedges as signs of *human* writing — and em dashes, which a July 2026 study found current models mostly use *less* than professional writers. Added "What not to flag" and "Human details to keep". Fixed the curly quotes example, whose before/after halves were identical.
+- **1.2.0** — Added passive/subjectless fragments, persuasive-authority tropes, hyphen-pair consistency (reframed: no blanket de-hyphenation), AI markup & citation artifacts, fragmented headers, and signposting; folded tailing negation into negative parallelism. Removed hardcoded pattern count and numeric group ranges from `SKILL.md` (the source of the three-file drift). Generalized the voice guidance away from dated, performative framing. Added a scope note and this upgrading methodology. Added a "No longer reliable tells" section.
+- **1.1.0** — Restructured: moved patterns to reference file, removed generational labels, trimmed SKILL.md from 537 to 172 lines.
+- **1.0.0** — Initial release. Forked from humanizer 2.1.1 with voice recalibration.

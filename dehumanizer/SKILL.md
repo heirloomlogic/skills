@@ -2,8 +2,8 @@
 name: dehumanizer
 description: >-
   Remove signs of AI-generated writing — slop, ChatGPT-isms, corporate filler,
-  em-dash closers, rule-of-three padding, sycophancy, inflated significance —
-  and rewrite in a deadpan, economical voice that preserves meaning and
+  em-dash closers, teaser headings, rule-of-three padding, sycophancy, inflated
+  significance — and rewrite in a deadpan, economical voice that preserves meaning and
   register. Use when someone wants prose to stop sounding AI-written or
   machine-made: READMEs, docs, changelogs, release notes, wikis, blog/landing
   copy, presentations, or any prose in a coding session. Trigger on phrasings
@@ -16,7 +16,7 @@ description: >-
   text; translation, summarization, or format conversion; or explaining
   AI-writing concepts without editing text.
 metadata:
-  version: "2.0.0"
+  version: "2.1.0"
 allowed-tools:
   - Read
   - Write
@@ -34,11 +34,7 @@ Based on Wikipedia's "Signs of AI writing" page, with voice recalibrated.
 
 ## Scope
 
-This makes AI-flavored prose read cleanly. It is not a tool for hiding that AI
-wrote something, and not a way to beat AI detectors — the job is the writing,
-not the provenance. The same tics show up in plenty of human writing, and it
-fixes those too. If the text is clearer and less annoying afterward, the skill
-worked, regardless of who or what produced the draft.
+This makes AI-flavored prose read cleanly. It is not a tool for hiding that AI wrote something, and not a way to beat AI detectors — the job is the writing, not the provenance. The same tics show up in plenty of human writing, and it fixes those too. If the text is clearer and less annoying afterward, the skill worked, regardless of who or what produced the draft.
 
 ## Your Task
 
@@ -50,26 +46,9 @@ When given text to dehumanize:
 4. **Match register** — If the input is technical docs, output technical docs. If it's a blog post, output a blog post. Don't flatten everything to the same voice.
 5. **Don't sterilize** — Removing AI patterns doesn't mean removing all personality. It means removing the *wrong* personality.
 
-Read `references/patterns.md` for the full catalog with examples. Its table of
-contents lists every pattern, grouped: **Content** (significance inflation,
-name-dropping, vague attribution, formulaic sections), **Language and grammar**
-(AI vocabulary, copula avoidance, negative parallelism, synonym cycling and
-repeated openings, passive/subjectless fragments, persuasive-authority tropes,
-stiff synonyms, formulaic sayings), **Style** (em dashes, boldface,
-inline-header lists, title case, emojis, curly quotes, hyphen-pair consistency,
-document skeleton, vendor markup artifacts, fragmented headers, unnecessary
-tables), **Communication** (chatbot artifacts, disclaimers, sycophancy,
-placeholder text), **Filler and hedging** (filler phrases, excessive hedging,
-generic conclusions, signposting), and **Drafting scaffolding left in** (unraised
-objections, fake alternatives, narrating the previous version). Work from the
-catalog itself, not this summary — it's the source of truth and it grows.
+Read `references/patterns.md` for the full catalog with examples. Its table of contents lists every pattern, grouped: **Content** (significance inflation, name-dropping, vague attribution, formulaic sections), **Language and grammar** (AI vocabulary, copula avoidance, negative parallelism, synonym cycling and repeated openings, passive/subjectless fragments, persuasive-authority tropes, stiff synonyms, formulaic sayings), **Style** (em dashes, boldface, inline-header lists, title case, emojis, curly quotes, hyphen-pair consistency, document skeleton, vendor markup artifacts, fragmented headers, teaser headings, unnecessary tables), **Communication** (chatbot artifacts, disclaimers, sycophancy, placeholder text), **Filler and hedging** (filler phrases, excessive hedging, generic conclusions, signposting), and **Drafting scaffolding left in** (unraised objections, fake alternatives, narrating the previous version). Work from the catalog itself, not this summary — it's the source of truth and it grows.
 
-The catalog ends with three calibration sections: **What not to flag**, **Human
-details to keep**, and **No longer reliable tells**. Read them. Most of these
-patterns are tells only in aggregate, several of the loudest ones have aged out,
-and a few — filler phrases, hedging, em dashes — now point the *other* way when
-they appear in isolation. Over-applying the catalog produces text that reads more
-machine-made, not less.
+The catalog ends with three calibration sections: **What not to flag**, **Human details to keep**, and **No longer reliable tells**. Read them. Most of these patterns are tells only in aggregate, several of the loudest ones have aged out, and a few — filler phrases, hedging, em dashes — now point the *other* way when they appear in isolation. Over-applying the catalog produces text that reads more machine-made, not less.
 
 ---
 
@@ -99,7 +78,9 @@ You're not performing authenticity. You're just writing like someone who has thi
 
 Removing overwrought, performative patterns does not mean adopting a new annoying persona. You can still have a voice. Bland encyclopedia copy also sucks. Just be normal.
 
-The failure mode is overcorrecting into ad copy. Deadpan is not performatively terse, and economy is not punchy sales rhythm. If a line would work as ad copy or a launch-video voiceover, it's wrong. The em-dash closer ("statement — and that's it"; see patterns §15) is the same mistake in punctuation form: two plain sentences beat one with a dramatic kicker. Deadpan also has a smug register — the "no muss, no fuss," I'm-above-this voice. Don't pick it up.
+The failure mode is overcorrecting into ad copy. Deadpan is not performatively terse, and economy is not punchy sales rhythm. If a line would work as ad copy or a launch-video voiceover, it's wrong. The em-dash closer ("statement — and that's it"; see patterns §17) is the same mistake in punctuation form: two plain sentences beat one with a dramatic kicker. Deadpan also has a smug register — the "no muss, no fuss," I'm-above-this voice. Don't pick it up.
+
+The same rhythm in a heading is the teaser (patterns §27): "What was suspended, and why," "The root cause, and the two sites," "Measured — and it is not what the issue assumes." The heading names a question, or promises the reader's expectation is about to be overturned, and withholds the answer for the paragraph below. Headings state findings. Write "Recording costs 40ms a frame" and let the section explain it. If the finding won't fit in a heading, use a plain label; a heading is not a trailer for its own contents.
 
 If you're ever choosing between flat and annoying, choose flat. But the actual target is neither: write like a competent person with limited patience for bullshit.
 
@@ -129,9 +110,10 @@ These performative moves are hollow regardless of context. Cut them:
 4. Check the flagged list against "What not to flag" and "Human details to keep". Drop anything that survives only as a lone instance of a weak tell
 5. Rewrite the slop. Leave the human stuff alone.
 6. Check the register: does the output match the input's intended context (docs, blog, email, presentation)?
-7. Check for voice anti-patterns: anything performative or hollow?
-8. Confirm no fact, name, number, date, or quote was lost or invented in the rewrite
-9. Present the dehumanized version
+7. Read every heading, title, and section-opening line on its own. If one defers its own answer, rewrite it to state the finding
+8. Check for voice anti-patterns: anything performative or hollow?
+9. Confirm no fact, name, number, date, or quote was lost or invented in the rewrite
+10. Present the dehumanized version
 
 ## Output Format
 
