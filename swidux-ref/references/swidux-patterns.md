@@ -398,8 +398,7 @@ let killswitchPlugin = KillswitchPlugin<AppState, AppAction>(
 plugins.register(killswitchPlugin)
 ```
 
-Trigger a cache-aware fetch on launch and let the bundled view modifier
-render the blocker (use `.forceFetch` for pull-to-refresh):
+Trigger a cache-aware fetch on launch and let the bundled view modifier render the blocker (use `.forceFetch` for pull-to-refresh):
 
 ```swift
 ContentView()
@@ -409,18 +408,9 @@ ContentView()
     }
 ```
 
-`.fetch` consults the cache and skips the network when fresh. On network
-failure, the plugin falls back to the cached config: dispatches
-`.verdictReceived(...)` from cache **and** `.fetchFailed(message)`, so the
-UI keeps a usable verdict while exposing the error.
+`.fetch` consults the cache and skips the network when fresh. On network failure, the plugin falls back to the cached config: dispatches `.verdictReceived(...)` from cache **and** `.fetchFailed(message)`, so the UI keeps a usable verdict while exposing the error.
 
-**Portfolio hosting.** One Cloudflare Worker + one KV namespace serves
-killswitch *and* feature-flag config for every app, keyed
-`GET /<appID>/<resource>` (`/killswitch`, `/flags`). The Cloudflare KV
-dashboard is the single control plane; onboarding an app is adding KV keys —
-no redeploy, no per-app URL. Unseeded apps fail open (type-aware defaults:
-killswitch → unblocked, flags → empty). Scaffold, deploy, onboard, and
-incident-runbook steps are in `swidux-config-worker.md`.
+**Portfolio hosting.** One Cloudflare Worker + one KV namespace serves killswitch *and* feature-flag config for every app, keyed `GET /<appID>/<resource>` (`/killswitch`, `/flags`). The Cloudflare KV dashboard is the single control plane; onboarding an app is adding KV keys — no redeploy, no per-app URL. Unseeded apps fail open (type-aware defaults: killswitch → unblocked, flags → empty). Scaffold, deploy, onboard, and incident-runbook steps are in `swidux-config-worker.md`.
 
 ## Wiring PaywallPlugin
 

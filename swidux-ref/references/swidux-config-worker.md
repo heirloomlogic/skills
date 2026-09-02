@@ -1,23 +1,12 @@
 # Swidux ConfigWorker — set up & deploy remote config
 
-How to scaffold and deploy the backend that answers `SwiduxKillswitch` and
-`SwiduxFeatureFlags`. Read this when the task is "host / deploy / onboard
-remote config" — not needed for ordinary plugin wiring (that's
-`swidux-patterns.md`). Everything here is self-contained: write the two files
-below into a fresh directory and run the `wrangler` commands; you do **not**
-need the Swidux repo checked out.
+How to scaffold and deploy the backend that answers `SwiduxKillswitch` and `SwiduxFeatureFlags`. Read this when the task is "host / deploy / onboard remote config" — not needed for ordinary plugin wiring (that's `swidux-patterns.md`). Everything here is self-contained: write the two files below into a fresh directory and run the `wrangler` commands; you do **not** need the Swidux repo checked out.
 
 ## What & why
 
-**One Worker + one Workers KV namespace serves the whole portfolio.** Don't
-create per-app Workers or namespaces. Every app's killswitch and feature-flag
-config are paths under a single URL base, so there is never a second URL to
-remember and onboarding an app is just adding KV keys — no redeploy, no DNS.
+**One Worker + one Workers KV namespace serves the whole portfolio.** Don't create per-app Workers or namespaces. Every app's killswitch and feature-flag config are paths under a single URL base, so there is never a second URL to remember and onboarding an app is just adding KV keys — no redeploy, no DNS.
 
-The control plane is the **Cloudflare KV dashboard** (Workers & Pages → KV →
-`CONFIG`). Keys read as `<appID>/<resource>` and sort alphabetically, so the
-portfolio is one list grouped by app. Editing a value (the emergency block, a
-flag flip) is: open the key, edit JSON, save.
+The control plane is the **Cloudflare KV dashboard** (Workers & Pages → KV → `CONFIG`). Keys read as `<appID>/<resource>` and sort alphabetically, so the portfolio is one list grouped by app. Editing a value (the emergency block, a flag flip) is: open the key, edit JSON, save.
 
 Routing model:
 
@@ -29,24 +18,11 @@ GET /counter/flags        ->   KV key  "counter/flags"       (FeatureFlagsConfig
 GET /                     ->   "swidux-config: ok"  (health target)
 ```
 
-- `appID` and `resource` are lowercase slugs, ≤ 64 chars each
-  (`^[a-z0-9][a-z0-9-]{0,63}$`). Anything else — including `//` or
-  trailing-slash aliases and segments long enough to trip KV's 512-byte key
-  limit — → `404`. `GET`/`HEAD` only; else `405`.
-- **Missing key → type-aware fail-open default**, so a not-yet-seeded app is
-  never blocked and never breaks decode: `killswitch` → `{}` (empty
-  `KillswitchConfig` = allow everyone), `flags` → `{"version":1,"flags":{}}`
-  (valid v1, no flags), any other resource → `{}`. A failed KV read serves the
-  same default (with `Cache-Control: no-store`) — never a 500. The
-  `X-Config-Source` response header says which case you hit: `kv` (seeded),
-  `default` (unseeded), `error` (KV read failed).
-- Per-resource `Cache-Control` governs *client* HTTP caches (URLSession —
-  Cloudflare's CDN does not cache Worker responses): `killswitch` is the
-  incident lever, kept short at `max-age=60`; `flags`/other `max-age=300`.
-  Server-side, the KV read passes a matching per-PoP `cacheTtl` (60/300).
+- `appID` and `resource` are lowercase slugs, ≤ 64 chars each (`^[a-z0-9][a-z0-9-]{0,63}$`). Anything else — including `//` or trailing-slash aliases and segments long enough to trip KV's 512-byte key limit — → `404`. `GET`/`HEAD` only; else `405`.
+- **Missing key → type-aware fail-open default**, so a not-yet-seeded app is never blocked and never breaks decode: `killswitch` → `{}` (empty `KillswitchConfig` = allow everyone), `flags` → `{"version":1,"flags":{}}` (valid v1, no flags), any other resource → `{}`. A failed KV read serves the same default (with `Cache-Control: no-store`) — never a 500. The `X-Config-Source` response header says which case you hit: `kv` (seeded), `default` (unseeded), `error` (KV read failed).
+- Per-resource `Cache-Control` governs *client* HTTP caches (URLSession — Cloudflare's CDN does not cache Worker responses): `killswitch` is the incident lever, kept short at `max-age=60`; `flags`/other `max-age=300`. Server-side, the KV read passes a matching per-PoP `cacheTtl` (60/300).
 
-Key-naming convention (keep canonical JSON in `seeds/<appID>/<resource>.json`
-in the repo so there's reviewable history and a known-good to paste back):
+Key-naming convention (keep canonical JSON in `seeds/<appID>/<resource>.json` in the repo so there's reviewable history and a known-good to paste back):
 
 ```
 <appID>/killswitch     KillswitchConfig     (gate / force-update)
@@ -54,13 +30,11 @@ in the repo so there's reviewable history and a known-good to paste back):
 <appID>/<future>       arbitrary JSON       (room to grow; defaults to {})
 ```
 
-`appID` is the app's stable slug. Pick it once and keep it forever — it's
-baked into the shipped app's endpoint URLs.
+`appID` is the app's stable slug. Pick it once and keep it forever — it's baked into the shipped app's endpoint URLs.
 
 ## The runnable artifacts
 
-Write these verbatim into a new directory (e.g. `ConfigWorker/`). They are
-vendor-neutral (`swidux-config`).
+Write these verbatim into a new directory (e.g. `ConfigWorker/`). They are vendor-neutral (`swidux-config`).
 
 ### `worker.js`
 
@@ -209,8 +183,7 @@ preview_id = "REPLACE_WITH_KV_PREVIEW_NAMESPACE_ID"
 
 ### `seeds/<appID>/killswitch.json`
 
-`KillswitchConfig` shape. An empty `{}` means "allow everyone"; populate to
-gate. Replace `<App>` / the App Store id when you use it.
+`KillswitchConfig` shape. An empty `{}` means "allow everyone"; populate to gate. Replace `<App>` / the App Store id when you use it.
 
 ```json
 {
@@ -223,8 +196,7 @@ gate. Replace `<App>` / the App Store id when you use it.
 
 ### `seeds/<appID>/flags.json`
 
-`FeatureFlagsConfig` shape — one of each flag kind (boolean rollout, weighted
-variant, tunable value). `version` is always `1`.
+`FeatureFlagsConfig` shape — one of each flag kind (boolean rollout, weighted variant, tunable value). `version` is always `1`.
 
 ```json
 {
@@ -264,10 +236,7 @@ wrangler kv namespace create CONFIG --preview  # -> preview_id
 wrangler deploy
 ```
 
-Note the printed `https://swidux-config.<your-subdomain>.workers.dev` URL (or
-attach a custom domain in the dashboard, e.g. `https://config.example.com`).
-**One URL for the whole portfolio** — this is the `<host>` every app's
-endpoints hang off.
+Note the printed `https://swidux-config.<your-subdomain>.workers.dev` URL (or attach a custom domain in the dashboard, e.g. `https://config.example.com`). **One URL for the whole portfolio** — this is the `<host>` every app's endpoints hang off.
 
 ## Smoke test
 
@@ -280,9 +249,7 @@ curl -i $host/counter               # 404 (needs <appID>/<resource>)
 curl -i -X POST $host/counter/killswitch   # 405
 ```
 
-A seeded key returns its blob verbatim (`X-Config-Source: kv`); an unseeded
-one returns the type-aware default (`X-Config-Source: default`). Two
-regressions to include:
+A seeded key returns its blob verbatim (`X-Config-Source: kv`); an unseeded one returns the type-aware default (`X-Config-Source: default`). Two regressions to include:
 
 ```sh
 curl -i $host/counter/constructor                 # must be {} — __proto__: null
@@ -295,27 +262,20 @@ curl -i "$host//counter//killswitch"              # must be 404 — no path alia
 
 ## Onboarding a new app (no redeploy)
 
-1. Choose a stable lowercase `appID` (`[a-z0-9-]`). It is baked into the
-   shipped endpoint URLs — pick once, keep forever.
-2. Add `seeds/<appID>/killswitch.json` and `seeds/<appID>/flags.json` (copy
-   `seeds/counter/*` as a starting point), commit.
+1. Choose a stable lowercase `appID` (`[a-z0-9-]`). It is baked into the shipped endpoint URLs — pick once, keep forever.
+2. Add `seeds/<appID>/killswitch.json` and `seeds/<appID>/flags.json` (copy `seeds/counter/*` as a starting point), commit.
 3. Seed the keys — dashboard, or:
    ```sh
    wrangler kv key put --binding=CONFIG <appID>/killswitch "$(cat seeds/<appID>/killswitch.json)"
    wrangler kv key put --binding=CONFIG <appID>/flags      "$(cat seeds/<appID>/flags.json)"
    ```
-4. Point that app's `Store.configured()` at `…/<appID>/killswitch` and
-   `…/<appID>/flags` (see `swidux-patterns.md` killswitch / feature-flags
-   wiring).
+4. Point that app's `Store.configured()` at `…/<appID>/killswitch` and `…/<appID>/flags` (see `swidux-patterns.md` killswitch / feature-flags wiring).
 
-No `wrangler deploy`, no new Worker, no DNS. An unseeded key already serves the
-safe fail-open default, so step 3 isn't even blocking for launch — it just
-means "no rules yet."
+No `wrangler deploy`, no new Worker, no DNS. An unseeded key already serves the safe fail-open default, so step 3 isn't even blocking for launch — it just means "no rules yet."
 
 ## Incident runbook — block a bad build
 
-1. Cloudflare dashboard → Workers & Pages → KV → `CONFIG` →
-   `<appID>/killswitch`.
+1. Cloudflare dashboard → Workers & Pages → KV → `CONFIG` → `<appID>/killswitch`.
 2. Set the gate:
    ```json
    {
@@ -325,38 +285,19 @@ means "no rules yet."
      "updateURL": "https://apps.apple.com/app/idXXXXXXXXX"
    }
    ```
-3. Save. Mirror it back into `seeds/<appID>/killswitch.json` and commit so the
-   repo stays the source of truth.
+3. Save. Mirror it back into `seeds/<appID>/killswitch.json` and commit so the repo stays the source of truth.
 
 ## Freshness: the backend can't fix client staleness
 
-Effective propagation = **max(KV per-PoP `cacheTtl`, client HTTP cache,
-client `cacheLifetime`)** — the last term dominates. The
-killswitch plugin caches the fetched config for `cacheLifetime`
-(**default 3600s**) regardless of endpoint freshness — so a perfectly deployed
-emergency block still won't reach an already-launched app for up to an hour
-with the default. If fast emergency response matters:
+Effective propagation = **max(KV per-PoP `cacheTtl`, client HTTP cache, client `cacheLifetime`)** — the last term dominates. The killswitch plugin caches the fetched config for `cacheLifetime` (**default 3600s**) regardless of endpoint freshness — so a perfectly deployed emergency block still won't reach an already-launched app for up to an hour with the default. If fast emergency response matters:
 
 - Lower `cacheLifetime` to ~300–900s in `KillswitchService.live(...)`.
-- Dispatch `.killswitch(.forceFetch)` on app-foreground (it bypasses the
-  freshness gate) so a returning user re-checks immediately.
-- Keep the Worker's `Cache-Control` (`killswitch` is `max-age=60`) at or below
-  the client `cacheLifetime` — telling the client's HTTP cache to hold the
-  response longer than the plugin will re-ask buys nothing. (Cloudflare's CDN
-  does not cache Worker responses; the only server-side cache is KV's per-PoP
-  `cacheTtl` on the read, which the Worker keeps at 60 s for killswitch.)
+- Dispatch `.killswitch(.forceFetch)` on app-foreground (it bypasses the freshness gate) so a returning user re-checks immediately.
+- Keep the Worker's `Cache-Control` (`killswitch` is `max-age=60`) at or below the client `cacheLifetime` — telling the client's HTTP cache to hold the response longer than the plugin will re-ask buys nothing. (Cloudflare's CDN does not cache Worker responses; the only server-side cache is KV's per-PoP `cacheTtl` on the read, which the Worker keeps at 60 s for killswitch.)
 
 ## What this Worker deliberately is not
 
-- **No write API.** Writes go through the dashboard or `wrangler` only — the
-  Worker is read-only public config (`GET`/`HEAD`). Nothing to authenticate,
-  nothing to abuse.
-- **No per-user logic.** Flag bucketing is client-side in the plugin; the
-  Worker just serves the config document. Keeping it dumb is exactly why it
-  never needs a redeploy.
+- **No write API.** Writes go through the dashboard or `wrangler` only — the Worker is read-only public config (`GET`/`HEAD`). Nothing to authenticate, nothing to abuse.
+- **No per-user logic.** Flag bucketing is client-side in the plugin; the Worker just serves the config document. Keeping it dumb is exactly why it never needs a redeploy.
 
-Free tier covers a portfolio comfortably (100k Worker requests/day, 100k KV
-reads/day); each request is one KV read served from the PoP-local KV cache
-when hot (`cacheTtl`), so KV origin load stays near zero. Note the free-tier
-KV read cap is also the availability ceiling — a widely-installed portfolio
-belongs on the paid plan.
+Free tier covers a portfolio comfortably (100k Worker requests/day, 100k KV reads/day); each request is one KV read served from the PoP-local KV cache when hot (`cacheTtl`), so KV origin load stays near zero. Note the free-tier KV read cap is also the availability ceiling — a widely-installed portfolio belongs on the paid plan.
