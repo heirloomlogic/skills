@@ -25,6 +25,14 @@ gh skill install heirloomlogic/skills persnicket-ref --agent claude-code --force
 gh skill install heirloomlogic/skills swidux-ref --agent claude-code --force --scope user --upstream
 gh skill install heirloomlogic/skills tightlip-ref --agent claude-code --force --scope user --upstream
 gh skill install heirloomlogic/skills tightwad --agent claude-code --force --scope user --upstream
+
+# Codex
+gh skill install heirloomlogic/skills ackshully --agent codex --force --scope user --upstream
+gh skill install heirloomlogic/skills dehumanizer --agent codex --force --scope user --upstream
+gh skill install heirloomlogic/skills persnicket-ref --agent codex --force --scope user --upstream
+gh skill install heirloomlogic/skills swidux-ref --agent codex --force --scope user --upstream
+gh skill install heirloomlogic/skills tightlip-ref --agent codex --force --scope user --upstream
+gh skill install heirloomlogic/skills tightwad --agent codex --force --scope user --upstream
 ```
 
 For more options please see the [gh skill install](https://cli.github.com/manual/gh_skill_install) documentation.
