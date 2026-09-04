@@ -6,7 +6,7 @@ Agent skills published by [Heirloom Logic LLC](https://heirloomlogic.com) for Cl
 
 | Skill | What it does | Upstream |
 |---|---|---|
-| [`ackshully`](ackshully/SKILL.md) | Explains one thing — a pull request, a branch, a repository, a document, a book chapter, a subject — at three depths: a two-sentence opener, a longer summary, then detail sections for whatever the reader still needs. Archives each report under `~/.ackshully/<context>/`. | — |
+| [`ackshully`](ackshully/SKILL.md) | Explains one thing — a pull request, a branch, a repository, a document, a book chapter, a subject — at three depths: a two-sentence opener, a longer summary, then detail sections for whatever the reader still needs. The opener and the summary are written for someone who does not already know the subject; the detail sections are where the jargon starts. Archives each report under `~/.ackshully/<context>/`. | — |
 | [`dehumanizer`](dehumanizer/SKILL.md) | Strips AI-writing tells (slop, ChatGPT-isms, em-dash closers, teaser headings, sycophancy) and rewrites prose in a concise, economical voice. | — |
 | [`persnicket-ref`](persnicket-ref/SKILL.md) | Setup and CI wiring for [Persnicket](https://github.com/heirloomlogic/Persnicket), a lightweight `swift-format` wrapper for Swift packages. | [heirloomlogic/Persnicket](https://github.com/heirloomlogic/Persnicket) |
 | [`swidux-ref`](swidux-ref/SKILL.md) | Architecture rules and copy-pasteable code templates for [Swidux](https://github.com/heirloomlogic/Swidux), a Redux-style state-management library for SwiftUI. | [heirloomlogic/Swidux](https://github.com/heirloomlogic/Swidux) |

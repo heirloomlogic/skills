@@ -1,12 +1,13 @@
 <!--
 A real output of this skill on a target that has no repository: Act 1 of King Lear.
-Opener, longer version, four detail sections, one short caveat section. 743 prose words.
+Opener, longer version, four detail sections, one short caveat section.
+The opener and the longer version assume no knowledge of the play; the detail sections quote and cite it.
 Note that it cites by scene, not by line number, because line numbers differ between editions.
 -->
 
 # Lear gives away the map and keeps the crown
 
-Actually factually, Lear does not retire in Act 1. He gives away the land, the revenue and the administration, and keeps the title, the ceremony and a hundred knights — which is the arrangement the rest of the play spends five acts dismantling. By the end of the act he has lost fifty of the knights and started to notice.
+Lear does not retire in Act 1. He gives away the land, the revenue and the administration, and keeps the title, the ceremony and a hundred knights — which is the arrangement the rest of the play spends five acts dismantling. By the end of the act he has lost fifty of the knights and started to notice.
 
 *King Lear*, Shakespeare, c. 1605–06; Quarto 1608, Folio 1623. Act 1, five scenes.
 

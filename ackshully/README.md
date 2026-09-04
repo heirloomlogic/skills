@@ -18,9 +18,11 @@ Every report is archived by context, with a dated scratch copy alongside it:
 
 Three levels. Each one is complete on its own and assumes the reader stopped at the level above.
 
-**Level 1 — the opener.** The first prose in the document, sitting immediately under the `#` title with nothing between them — no subtitle, no summary line, no citation. Two or three sentences, no heading of its own, beginning with "Well actually,", "Ackshully," or "Actually factually," picked at random. That is the whole of the joke. Everything after the comma is the largest true statement about the thing, and nothing further down the document is arch about it.
+**Level 1 — the opener.** The first prose in the document, sitting immediately under the `#` title with nothing between them — no subtitle, no summary line, no citation. Two or three sentences, no heading of its own, opening straight onto the subject and saying the largest true thing about it.
 
 **Level 2 — the longer version.** One section, 150 to 300 words. When the reader finishes it they understand the thing well enough to talk about it.
+
+The title, the opener and the longer version are written for a smart friend who does not work on this project, has not read the diff and does not know the field. No undefined term appears in the title or the opener, and the longer version defines each one in ordinary words the first time it uses it. Simple is not vague: where the plain word would be wrong, the real word is used and explained in the same breath. The detail sections are where the vocabulary of the subject starts.
 
 **Level 3 — the detail sections.** Zero to five, each added only when a reader who already read Level 2 would still be missing something they need. What that means depends on the target: for a pull request it is the code a reviewer has to see, cited by file and line; for a chapter of a novel it is who is who and what recurs; for a chapter of a history book it is the people, the dates and how they connect to events the chapter never mentions; for a subject it is the claims carrying the weight and the parts genuinely disputed.
 
@@ -49,7 +51,7 @@ Over budget means cut a section, not compress every sentence into a fragment.
 
 ## Voice
 
-The draft goes through the [`dehumanizer`](../dehumanizer/SKILL.md) skill before it is written to disk. Active voice, one idea per sentence, plain words, no hedging, the same word for the same thing every time, and no teaser headings.
+The draft goes through the [`dehumanizer`](../dehumanizer/SKILL.md) skill before it is written to disk — required whenever that skill is installed, not a step to skip because the draft already reads well. Active voice, one idea per sentence, plain words, no hedging, the same word for the same thing every time, and no teaser headings.
 
 Facts get verified or marked unverified. It does not invent a date, a name, a line number, or a quotation. The King Lear example cites by scene rather than by line, because line numbers do not agree across editions.
 
@@ -59,6 +61,8 @@ Tables replace code when the point is a set of cases. Mermaid appears only when 
 
 - [`references/example-pull-request.md`](references/example-pull-request.md) — a 305-line Swift change, four detail sections, code blocks cited by file and line.
 - [`references/example-chapter.md`](references/example-chapter.md) — Act 1 of *King Lear*, a cast table, quoted verse, and a short note on what the text does not settle.
+
+The skill is named after a joke it no longer tells. The opener used to start "Well actually," and it stopped being funny somewhere around the fiftieth document. Do not put it back.
 
 ## Installation
 

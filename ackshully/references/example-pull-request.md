@@ -1,23 +1,24 @@
 <!--
 A real output of this skill, restructured for progressive disclosure: HeirloomKit PR #66, a 305-line code change.
-Opener, longer version, four detail sections, no risks section. 461 prose words.
+Opener, longer version, four detail sections, no risks section.
+The opener and the longer version name no term they do not explain; the detail sections below them are written for a reviewer.
 -->
 
-# The elevation fill picks its own colour
+# The tests could not see the colour, so a shading bug shipped
 
-Well actually, the dark-mode elevation lift was never a number. It was a colour, and the colour lived in a `private var` on a `@MainActor` view modifier where no test could reach it. Issue #55 shipped a darkening tint that way once, with every test green, because the tests only checked magnitudes.
+In dark mode this app lifts a panel off its background by washing it with a little white. That wash once shipped darkening instead, with every test green: the tests checked its strength, never its colour. This change moves the colour somewhere a test can reach, and the tests now check which way it goes.
 
 [PR #66](https://github.com/heirloomlogic/HeirloomKit/pull/66) — 256 added, 49 deleted, 5 files.
 
 ## The longer version
 
-A `.glassFrame` shows depth two ways. On iOS 26 it gets a real `glassEffect`. On the opaque fill and on the pre-26 material fallback it gets nothing, so it has to fake depth with a value ladder: in dark mode the `hard`, `medium` and `soft` styles paint a white overlay at 0.030, 0.055 and 0.085 opacity.
+A panel in this library is drawn inside a glass frame — a frosted backing that sits behind the content. On recent versions of iOS the system draws real glass for it. Everywhere else the frame has to fake depth. It fakes it by painting a thin white layer over the panel. The layer is 3% opaque for the flattest panel, 5.5% for the middle one, 8.5% for the closest. Those three numbers are the depth ladder.
 
-`GlassFrameLayout.elevationLift` supplied those three numbers, and the tests checked them. The `.white` they multiplied was written at the call site, inside the modifier, on a type the test target cannot instantiate. So the sign of the effect — lighten or darken — was the one part of it nothing asserted. Issue #55 is what that costs.
+The numbers came from a helper the tests could call, `GlassFrameLayout.elevationLift`. The white they were multiplied by was written elsewhere, inside view code the test target cannot even create. So the tests could prove the wash was faint. They could not prove it was white rather than black. Issue #55 is what that gap cost: a darkening wash shipped, and every test stayed green.
 
-This change moves the decision down to `GlassFrameLayout`, which is a plain enum with static methods and no actor isolation. It returns `Color?` now, not `Double`: `elevationFill` for the depth ladder, `selectionWash` for the accent tint on a selected outline. The modifier picks between them and paints. Both fill paths — glass and opaque — call the same two helpers, which also removes a duplicated `0.07` that had let a selected card change shade with the OS version.
+This change moves the decision down into `GlassFrameLayout`, a plain lookup table with no view code in it. A test can call it directly. It hands back a colour now, not a number: `elevationFill` covers the depth ladder, `selectionWash` covers the tint on a selected panel. The view code picks one of the two and paints it. Both drawing paths, real glass and painted fallback, now call the same two helpers. That deletes a duplicated 7% which had let a selected panel change shade with the iOS version.
 
-The tests then assert the thing that actually broke. `resolvedLuminance` ignores alpha, so a lift reads near 1.0 whatever its opacity, and the check is on direction rather than strength. No shipped value changed and nothing renders differently.
+The tests then check the thing that actually broke: not how strong the wash is, but which way it goes. No shipped value changed and nothing renders differently.
 
 ## The layout enum returns the colour
 

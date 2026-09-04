@@ -12,7 +12,7 @@ description: >-
   /code-review), security review, HTML or slide output, or answering a narrow
   factual question that needs one sentence.
 metadata:
-  version: "1.0.0"
+  version: "2.0.0"
 allowed-tools:
   - Read
   - Grep
@@ -30,6 +30,8 @@ allowed-tools:
 Explain one thing at three depths, in one markdown file, so the reader can stop at any depth and still be better off.
 
 **The reader has two minutes and four interruptions.** They read the opener. If the opener earns it, they read the summary. If the summary earns it, they read the detail. Write for a reader who quits after each section.
+
+**The reader is not an expert in this thing.** That is why they are reading. The title, the opener and the summary are written for someone who does not know the subject; the vocabulary of the subject starts at Level 3.
 
 A long explanation of a small thing is a failure, not a bonus.
 
@@ -90,19 +92,15 @@ Progressive disclosure. Each level is complete on its own and assumes the reader
 
 One `#` heading, one sentence on what the thing is. Nothing else. No subtitle, no citation line, no summary paragraph under it.
 
+Write it in ordinary words. No framework nouns, no API names, no term a reader outside the project would have to look up. The title is the one line everybody reads.
+
 ### Level 1 — the opener, 2 to 3 sentences, no heading
 
 **The opener is the first prose in the document.** It sits immediately under the `#` heading, with nothing between them. If anything at all separates the heading from the opener, move that thing below the opener.
 
-**The first words are one of three, chosen at random.** Run this and use what it prints:
+Say the largest true thing about the subject, in two or three sentences. Three only if the thing repairs or reverses something, because then one sentence has to say what it repairs.
 
-```sh
-awk 'BEGIN { srand(); split("Well actually,|Ackshully,|Actually factually,", o, "|"); print o[int(rand()*3)+1] }'
-```
-
-Do not pick by taste, and do not default to the first one. Everything after that comma is information: the largest true statement about the thing, in two or three sentences. Three only if the thing repairs or reverses something, because then one sentence has to say what it repairs.
-
-**The joke ends at the comma.** The opener is the only humour in the document. Nothing after it is arch, knowing, or pleased with itself. The rest of the document exists to be understood.
+Open on the subject itself. No catchphrase, no throat-clearing, no "This PR", no "This document". Nothing here or below it is arch, knowing, or pleased with itself — the document exists to be understood.
 
 ### The citation line
 
@@ -134,7 +132,21 @@ Include a final section only when you found something that should make the reade
 
 Nothing that severe? Omit it. Do not write "no risks identified". Do not list nits, style, or missing tests. Most documents end at Level 3.
 
-## 5. Budget
+## 5. Plain language in the opener and the summary
+
+This section governs the title, the opener and `## The longer version`. Below those three, the vocabulary of the subject is fair game.
+
+**Write for a smart friend who does not work on this project.** They have not read the diff, they do not know the framework, and they do not work in this field. They are not slow and you do not talk down to them. They just do not have the words yet, so you hand them the words. Simple is not vague: if the plain word would be wrong, use the real one and say what it means in the same breath. Never buy readability with an inaccuracy.
+
+- No undefined domain term in the title or the opener. A sentence that needs one is the wrong sentence — say what the thing does instead of what it is called.
+- In the summary, define each domain term in ordinary words the first time it appears, in the same sentence: "an anchor — the fixed point a view is pinned to". A term nobody defined is a term nobody read.
+- Say what a thing is for before you say what it is called.
+- 20 words per sentence here, against 25 for the rest of the document. One idea each.
+- Take the common word over the specialist word when both are true. Expand every acronym on first use. Never use a verb that only this codebase uses.
+- Paths, symbol names and quoted text stay exact wherever they appear, but they rarely belong this high up.
+- Once the summary has introduced a term, the detail sections use it freely. That is what the detail sections are for.
+
+## 6. Budget
 
 Prose is every word outside a code block, a table, and a diagram.
 
@@ -152,7 +164,7 @@ Prose is every word outside a code block, a table, and a diagram.
 
 Over budget means cut a section, not compress every sentence into a fragment.
 
-## 6. Code, tables, diagrams
+## 7. Code, tables, diagrams
 
 - Show the changed or relevant lines, plus just enough context to read them. Cut function bodies, imports, and boilerplate, and mark the cut with `…`.
 - Where a shape changed, use one block with `// before` and `// after` comments rather than two blocks.
@@ -162,9 +174,9 @@ Over budget means cut a section, not compress every sentence into a fragment.
 - A table replaces a block when the point is a set of cases: the same input before and after, a sequence of states, a cast of characters, a run of dates.
 - Use a mermaid `flowchart` only when a value or a line of causation crosses three or more parts. Most documents have no diagram. Never draw ASCII art or box drawings.
 
-## 7. Voice
+## 8. Voice
 
-**Invoke the `dehumanizer` skill on your draft before you write the file.** Its pattern catalog is the standard this document is held to. If that skill is not available, apply these directly:
+**If the `dehumanizer` skill is installed, the whole draft goes through it before you write the file.** Required, not suggested, and not skipped because the draft already reads well. Its pattern catalog is the standard this document is held to. Apply these directly only when that skill is not installed:
 
 - Active voice, simple tenses. One idea per sentence, 25 words maximum.
 - Plain words: "use" not "leverage", "before" not "prior to".
@@ -181,9 +193,11 @@ Over budget means cut a section, not compress every sentence into a fragment.
 | Mistake | Fix |
 |---|---|
 | The explanation stays in the chat | Write the file. The chat gets 2–3 bullets and the path |
-| "Well actually," every time | Run the `awk` line and use what it prints |
 | A summary or citation line between the title and the opener | The opener is the first prose under the `#`. The citation goes below it |
-| The know-it-all voice continues past the comma | The joke is two words long. The rest is service |
+| An arch or knowing voice anywhere in the document | The document is service. Nothing in it is pleased with itself |
+| The opener names something the reader has never heard of | Say what it does. The name can wait for a detail section |
+| The summary uses a term it never defined | Define it in ordinary words on first use, in the same sentence |
+| The title is written in the codebase's vocabulary | Retitle it in words a stranger would use |
 | Level 2 restates Level 1 in more words | Level 2 covers the whole shape. Level 1 covers the point |
 | A detail section for every file or every page | Only what a reader who finished Level 2 still needs |
 | Sections ordered by file path or page number | Ordered by what matters most |
