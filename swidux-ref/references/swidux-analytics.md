@@ -260,7 +260,7 @@ When the mapper isn't the right shape — usually for async events that depend o
 ```swift
 case .auth(.signedIn(let userID)):
     state.auth.currentUserID = userID                   // auto-identify fires from this on the next dispatch
-    return { send in
+    return Effect { send in
         await send(.analytics(.alias(newID: userID)))   // stitches the prior anonymous distinctId to the new userID
         await send(.analytics(.track(AnalyticsEvent("user_signed_in"))))
     }
