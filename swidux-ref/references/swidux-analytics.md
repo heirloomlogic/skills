@@ -313,7 +313,7 @@ import Testing
 
 `RecordingAnalyticsService` is an `actor`. `calls` holds every call in arrival order (`.track`, `.identify`, `.alias`, `.reset`, `.flush`, and `.setOptedOut` from the consent hook), which is what an ordering assertion like consent-before-reset needs. `trackedEvents`, `identifyCalls`, `aliasCalls`, `resetCount`, and `flushCount` read one kind from it. Read them with `await` after `plugin.flush()`. It records calls a real service would drop, such as tracking while opted out, so assert consent through the `.setOptedOut` entries. It logs a fault at init in Release builds.
 
-When the code under test calls Mixpanel-only controls (`setOptedOut`, `optInTracking(distinctID:properties:)`, `setLoggingEnabled`, `setUseIPAddressForGeoLocation`), use `RecordingMixpanelAnalyticsService` from `SwiduxMixpanelAnalytics`. It sends the five service calls to its `recorder` and records opt-ins and opt-outs there too. For previews where nothing needs verifying, the core `MockAnalyticsService()` is a parameterless no-op struct.
+When the code under test calls Mixpanel's consent controls (`setOptedOut`, `optOutTracking()`, `optInTracking(distinctID:properties:)`, `isOptedOut`), use `RecordingMixpanelAnalyticsService` from `SwiduxMixpanelAnalytics`. It sends the five service calls to its `recorder` and records opt-ins and opt-outs there too. For previews where nothing needs verifying, the core `MockAnalyticsService()` is a parameterless no-op struct.
 
 ## Swapping providers
 
