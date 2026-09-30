@@ -30,7 +30,7 @@ let analyticsService: any AnalyticsService = ConsoleAnalyticsService()
 
 `ConsoleAnalyticsService(subsystem: "Swidux", category: "Analytics")` logs every `track` / `identify` / `alias` / `reset` / `flush` to `os.Logger` — visible in the Xcode console and Console.app, quiet in Release — with a deterministic pretty-printer for `AnalyticsValue` (dict keys sorted). It is a *micro version of the real thing*: the mapper, identity transitions, screen-view enrichment, and opt-out all run through the real plugin pipeline, so analytics wiring is developed and QA-tested end to end with no SDK, no token, and no vendor account.
 
-Don't confuse it with the silent `MockAnalyticsService()` — a parameterless no-op for previews and tests, where verification happens against a recording mock, not console output. For *developing* the app, `ConsoleAnalyticsService` is the default because the markers are observable.
+Don't confuse it with the silent `MockAnalyticsService()`, a parameterless no-op for previews, or with `RecordingAnalyticsService()`, which records calls for tests to assert on. For *developing* the app, `ConsoleAnalyticsService` is the default because the markers are observable.
 
 Adopting Mixpanel later is purely the two-line `Store.configured()` swap shown under "Swapping providers" — mapper, identity, events, reducers, views, and tests are untouched. The vendor decision is deferred, not foundational.
 
@@ -208,7 +208,7 @@ For hashed/transformed IDs use the closure init; for a plain non-optional stored
 
 ### Identity tests
 
-Inject `InMemoryKeyValueStore` for both paths to make hydration deterministic. The DocC `KeyValueStoreGuide` "Testing" section shows the pattern (same-instance read-back after a write); identity tests build on top by hydrating an `AppState` from that store and asserting on the plugin's `service.identify` / `service.reset` calls captured by `MockMixpanelAnalyticsService`. See "Tests" below for the general analytics mock setup.
+Inject `InMemoryKeyValueStore` for both paths to make hydration deterministic. The DocC `KeyValueStoreGuide` "Testing" section shows the pattern (same-instance read-back after a write); identity tests build on top by hydrating an `AppState` from that store and asserting on the plugin's `service.identify` / `service.reset` calls captured by `RecordingAnalyticsService`. See "Tests" below for the general recorder setup.
 
 ## Plugin construction in `Store.configured()`
 
@@ -283,34 +283,37 @@ struct ContentView: View {
 
 ## Tests
 
-Inject the recording mock and assert against its captured calls:
+Inject `RecordingAnalyticsService` from `SwiduxAnalytics` and assert against its captured calls. The test never names the vendor, so it survives a provider swap unchanged:
 
 ```swift
+import SwiduxAnalytics
 import Testing
-import SwiduxMixpanelAnalytics
 @testable import MyApp
 
 @MainActor
 @Test func itemAdded_tracksEvent() async throws {
-    let mock = MockMixpanelAnalyticsService()
+    let recorder = RecordingAnalyticsService()
     let plugin = AnalyticsPlugin<AppState, AppAction>(
         state: \.analytics,
         action: AppAction.analytics,
         extractAction: { if case .analytics(let a) = $0 { return a }; return nil },
-        service: mock,
-        mapper: analyticsMapper
+        service: recorder,
+        mapper: analyticsMapper,
+        onConsentChange: { await recorder.setOptedOut($0) }
     )
 
     var state = AppState()
     plugin.afterReduce(state: &state, action: .items(.add))
     await plugin.flush()
 
-    let events = await mock.trackedEvents
+    let events = await recorder.trackedEvents
     #expect(events.first?.name == "item_added")
 }
 ```
 
-`MockMixpanelAnalyticsService` is an `actor` that records `trackedEvents`, `identifyCalls`, `aliasCalls`, `resetCount`, `flushCount`, plus opt-out / logging / geo state — read them with `await` after calling `plugin.flush()`. For previews where nothing needs verifying, the core `MockAnalyticsService()` from `SwiduxAnalytics` is a parameterless no-op struct.
+`RecordingAnalyticsService` is an `actor`. `calls` holds every call in arrival order (`.track`, `.identify`, `.alias`, `.reset`, `.flush`, and `.setOptedOut` from the consent hook), which is what an ordering assertion like consent-before-reset needs. `trackedEvents`, `identifyCalls`, `aliasCalls`, `resetCount`, and `flushCount` read one kind from it. Read them with `await` after `plugin.flush()`. It records calls a real service would drop, such as tracking while opted out, so assert consent through the `.setOptedOut` entries. It logs a fault at init in Release builds.
+
+When the code under test calls Mixpanel-only controls (`setOptedOut`, `optInTracking(distinctID:properties:)`, `setLoggingEnabled`, `setUseIPAddressForGeoLocation`), use `RecordingMixpanelAnalyticsService` from `SwiduxMixpanelAnalytics`. It sends the five service calls to its `recorder` and records opt-ins and opt-outs there too. For previews where nothing needs verifying, the core `MockAnalyticsService()` is a parameterless no-op struct.
 
 ## Swapping providers
 
