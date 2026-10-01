@@ -385,8 +385,8 @@ let killswitchPlugin = KillswitchPlugin<AppState, AppAction>(
     action: AppAction.killswitch,
     extractAction: { if case .killswitch(let a) = $0 { return a }; return nil },
     service: KillswitchService.live(
-        // Shared portfolio backend: one Worker + one KV namespace, keyed
-        // /<appID>/<resource>. Scaffold & deploy: swidux-config-worker.md
+        // Any HTTPS endpoint serving KillswitchConfig JSON. Hosting
+        // contract: swidux-config-hosting.md
         endpoint: URL(string: "https://<host>/<appID>/killswitch")!,
         cacheLifetime: 900  // default is 3600s; lower it so an emergency
                             // block reaches launched apps fast (see below)
@@ -410,7 +410,7 @@ ContentView()
 
 `.fetch` consults the cache and skips the network when fresh. On network failure, the plugin falls back to the cached config: dispatches `.verdictReceived(...)` from cache **and** `.fetchFailed(message)`, so the UI keeps a usable verdict while exposing the error.
 
-**Portfolio hosting.** One Cloudflare Worker + one KV namespace serves killswitch *and* feature-flag config for every app, keyed `GET /<appID>/<resource>` (`/killswitch`, `/flags`). The Cloudflare KV dashboard is the single control plane; onboarding an app is adding KV keys — no redeploy, no per-app URL. Unseeded apps fail open (type-aware defaults: killswitch → unblocked, flags → empty). Scaffold, deploy, onboard, and incident-runbook steps are in `swidux-config-worker.md`.
+**Hosting.** One endpoint keyed `GET /<appID>/<resource>` (`/killswitch`, `/flags`) can serve every app in a portfolio, so onboarding an app is a data write, not a redeploy. What the server must return in each case (a storage error is a non-2xx, never a 200 default; an unknown resource is a 404), how to keep it available, and a conformance checklist are in `swidux-config-hosting.md`.
 
 ## Wiring PaywallPlugin
 
@@ -606,11 +606,17 @@ enum AppAction: Sendable {
 
 ```swift
 let kv: any KeyValueStore = UserDefaultsKeyValueStore()
-let initial = AppState(featureFlags: .hydrated(from: kv))
+// Stable bucketing identity: Keychain-backed so it survives reinstall.
+// AppState declares `var deviceID: String = ""`.
+let deviceID = KeychainKeyValueStore(service: "com.example.app").deviceIdentity()
+let initial = AppState(
+    featureFlags: .hydrated(from: kv, deviceID: deviceID),
+    deviceID: deviceID
+)
 let store = AppStore(initialState: initial, reducer: AppReducer())
 
-// Same shared Worker as the killswitch endpoint, different resource segment
-// (one host serves the whole portfolio). Deploy: swidux-config-worker.md
+// Same host as the killswitch endpoint, different resource segment.
+// Hosting contract: swidux-config-hosting.md
 let configURL = URL(string: "https://<host>/<appID>/flags")!
 
 let flags = FeatureFlagsPlugin<AppState, AppAction>(
@@ -618,6 +624,7 @@ let flags = FeatureFlagsPlugin<AppState, AppAction>(
     action: AppAction.featureFlags,
     extractAction: { if case .featureFlags(let a) = $0 { return a } else { return nil } },
     service: HTTPFeatureFlagsService(url: configURL),
+    deviceIDKeyPath: \.deviceID,
     userIDKeyPath: \.session.userID,
     refreshPolicy: .automatic,
     keyValueStore: kv,
