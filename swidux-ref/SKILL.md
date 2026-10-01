@@ -159,7 +159,7 @@ extension AppState {
 // Reducer arm — no try?, no throws. Encode errors are logged + assertionFailure in DEBUG.
 case .themeChanged(let theme):
     state.theme = theme
-    return { @Sendable _ in
+    return Effect { @Sendable _ in
         environment.keyValue.setValue(theme, for: .theme)
     }
 ```

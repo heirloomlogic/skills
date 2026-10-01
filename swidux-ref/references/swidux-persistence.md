@@ -63,7 +63,7 @@ nonisolated struct Card: Identifiable, Equatable, Sendable {
 | Marker | Effect |
 |---|---|
 | *(none)* | Mirror directly as `var name: T = <default>` (CloudKit-safe default — see above). SwiftData persists scalars and `Codable` composites. |
-| `@Inline` | Force a `Codable` value into a single opaque JSON `Data` column (defaulting to `Data()`), exposed through a computed accessor of the original type. Keeps a CloudKit record compact; sidesteps SwiftData `Codable`-attribute edge cases. |
+| `@Inline` | Force a `Codable` value into a single opaque JSON `Data` column (defaulting to `Data()`), exposed through a read-only, throwing (`get throws`) accessor of the original type. Keeps a CloudKit record compact; sidesteps SwiftData `Codable`-attribute edge cases. |
 | `@ForeignKey` | Intent/documentation marker on a `UUID`; functionally a mirrored scalar column. |
 | `@Relation(deleteRule:inverse:)` | A SwiftData relationship to another `@Persisted` entity. The property's type references the **domain** type (`[Tag]` / `Tag?` / `Tag`); the model substitutes the `…Model` shadow — always **optional** (`= nil`) for CloudKit safety — and the converters map element-by-element. A non-optional to-one `@Relation` is a `relationRequiresOptional` diagnostic. `inverse` is a key path on the *generated model* (`\TagModel.card`). `deleteRule` is a `SwiduxDeleteRule` (`.cascade`, `.nullify`, `.noAction`, `.deny`). |
 | `@Ignored` | Exclude a derived/denormalized field. **Must be optional** so `toDomain()` can reconstruct it as `nil` on load — a diagnostic fires on a non-optional `@Ignored`. |

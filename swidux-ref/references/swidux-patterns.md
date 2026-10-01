@@ -150,7 +150,7 @@ struct ItemReducer: SwiduxReducer {
             return nil
 
         case .incrementCountAsync(let id):
-            return { send in
+            return Effect { send in
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 await send(.items(.incrementCount(id)))
             }
@@ -496,7 +496,7 @@ In a feature reducer that listens for `answerAccepted`:
 
 ```swift
 case .parentalGate(.answerAccepted(let reason)) where reason == "purchase":
-    return { send in await send(.shop(.buyGems)) }
+    return Effect { send in await send(.shop(.buyGems)) }
 ```
 
 ## Reducer test (Swift Testing)
